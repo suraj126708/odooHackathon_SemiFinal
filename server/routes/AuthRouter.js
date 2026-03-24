@@ -4,8 +4,6 @@ const {
   getProfile,
   updateProfile,
   logout,
-  promoteToAdmin,
-  demoteFromAdmin,
 } = require("../controllers/AuthController.js");
 
 const {
@@ -50,9 +48,5 @@ router.get("/verify", ensureAuthenticated, (req, res) => {
     user: req.user,
   });
 });
-
-// Admin management routes (protected, admin only)
-router.post("/users/:userId/promote", ensureAuthenticated, promoteToAdmin);
-router.post("/users/:userId/demote", ensureAuthenticated, demoteFromAdmin);
 
 module.exports = router;

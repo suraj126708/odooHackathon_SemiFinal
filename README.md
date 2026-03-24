@@ -1,17 +1,15 @@
-# StackIt - Q&A Platform
+# StackIt - Auth Starter
 
-A modern Q&A platform built for the Odoo Hackathon, featuring user authentication, question management, admin dashboard, and more.
+A minimal auth starter built for hackathons: register, login, JWT-protected profile, and logout.
 
 ## Features
 
-- 🔐 User Authentication & Authorization
-- ❓ Ask & Answer Questions
-- 🏷️ Tag-based Question Organization
-- 👍 Voting System
-- 👑 Admin Dashboard
-- 🔔 Real-time Notifications
-- 📱 Responsive Design
-- 🎨 Modern UI with Tailwind CSS
+- 🔐 User Authentication (JWT)
+- 📝 Register + Login UI
+- 🔒 Protected Profile page (`GET /api/auth/profile`)
+- 🧾 Update profile + logout endpoints (JWT protected)
+- 🎨 UI built with TailwindCSS + shadcn/ui `Button`
+- 📱 Responsive UI with Tailwind CSS
 
 ## Prerequisites
 
@@ -45,18 +43,16 @@ JWT_SECRET=your-secret-key-here
 PORT=8080
 ```
 
-### 3. Set Up Admin User
+### 3. (Optional) Seed Demo Users
 
 ```bash
-# Create the first admin user
-npm run setup-admin
+# Creates demo + admin users
+npm run seed
 ```
 
-This creates a default admin user:
-
-- Email: `admin@stackit.com`
-- Username: `admin`
-- Password: `admin123`
+This creates:
+- `demo@gmail.com` / `demo123`
+- `admin@gmail.com` / `admin123`
 
 ### 4. Start the Application
 
@@ -83,65 +79,27 @@ npm run client
 - **Health Check**: http://localhost:8080/ping
 
 ## Screenshots & Demo
+This repo was pruned to an auth-only starter. The original Q&A screenshots/video were removed.
 
-### Application Demo Video
-
-> **Note**: The demo video is available in the `ProjectImges/recording.mp4` file. Due to GitHub's limitations with video playback in README files, please download and view the video locally.
-
-📹 **[Download Demo Video](./ProjectImges/recording.mp4)** (27MB)
-
-_Alternatively, you can run the application locally to see it in action:_
-
+Run the app to see the auth UI locally:
 ```bash
 npm run dev
 ```
 
-### Homepage
-
-![Homepage](<./ProjectImges/Screenshot%20(34).png>)
-
-### User Authentication
-
-![Login Page](<./ProjectImges/Screenshot%20(35).png>)
-![Registration Page](<./ProjectImges/Screenshot%20(36).png>)
-
-### Question Management
-
-![Ask Question](<./ProjectImges/Screenshot%20(37).png>)
-![Question Detail](<./ProjectImges/Screenshot%20(38).png>)
-![Question List](<./ProjectImges/Screenshot%20(39).png>)
-
-### User Profile & Settings
-
-![User Profile](<./ProjectImges/Screenshot%20(40).png>)
-![Profile Settings](<./ProjectImges/Screenshot%20(41).png>)
-
-### Admin Dashboard
-
-![Admin Dashboard](<./ProjectImges/Screenshot%20(42).png>)
-![User Management](<./ProjectImges/Screenshot%20(43).png>)
-
-### Notifications & UI
-
-![Notifications](<./ProjectImges/Screenshot%20(44).png>)
-![Responsive Design](<./ProjectImges/Screenshot%20(45).png>)
-
-## Project Structure
+## Project Structure (Auth Only)
 
 ```
 OdooHackathon/
 ├── client/                 # React frontend
 │   ├── src/
-│   │   ├── components/     # Reusable components
-│   │   ├── Pages/         # Page components
-│   │   ├── services/      # API services
-│   │   └── Authorisation/ # Auth context & config
+│   │   ├── Pages/         # `Login.jsx`, `Register.jsx`, `ProfilePage.jsx`
+│   │   └── Authorisation/ # Auth context & axios config
 │   └── package.json
 ├── server/                # Node.js backend
-│   ├── controllers/       # Route controllers
-│   ├── models/           # Database models
-│   ├── routes/           # API routes
-│   ├── middlewares/      # Custom middlewares
+│   ├── controllers/       # `AuthController.js`
+│   ├── models/            # `User.js`
+│   ├── routes/           # `AuthRouter.js`
+│   └── middlewares/      # `Auth.js`, `AuthMiddleware.js`
 │   └── package.json
 └── package.json          # Root package.json
 ```
@@ -156,37 +114,12 @@ OdooHackathon/
 - `PUT /api/auth/profile` - Update user profile
 - `POST /api/auth/logout` - Logout user
 
-### Questions
+- `GET /api/auth/verify` - Verify JWT token (protected)
 
-- `GET /api/questions` - Get all questions
-- `GET /api/questions/:id` - Get single question
-- `POST /api/questions` - Create question
-- `PUT /api/questions/:id` - Update question
-- `DELETE /api/questions/:id` - Delete question
+## UI Stack
 
-### Answers
-
-- `POST /api/questions/:questionId/answers` - Create answer
-- `PUT /api/questions/:questionId/answers/:answerId` - Update answer
-- `DELETE /api/questions/:questionId/answers/:answerId` - Delete answer
-
-### Admin (Admin only)
-
-- `GET /api/admin/users` - Get all users
-- `POST /api/auth/users/:userId/promote` - Promote user to admin
-- `POST /api/auth/users/:userId/demote` - Demote admin to user
-- `POST /api/admin/users/:userId/ban` - Ban user
-- `POST /api/admin/users/:userId/unban` - Unban user
-
-## Admin Features
-
-Once logged in as an admin, you can:
-
-1. **Access Admin Dashboard**: Navigate to `/admin` in the frontend
-2. **Manage Users**: Promote/demote admins, ban/unban users
-3. **Moderate Content**: Delete inappropriate questions and answers
-4. **View Reports**: Handle user-submitted reports
-5. **Monitor Statistics**: View platform usage statistics
+- TailwindCSS for layout/spacing
+- shadcn/ui for prebuilt components (currently `Button`)
 
 ## Development
 
@@ -210,7 +143,7 @@ npm run seed
 1. **Port already in use**: Change the PORT in server/.env
 2. **MongoDB connection failed**: Check your MongoDB connection string
 3. **CORS errors**: Ensure the server is running on the correct port
-4. **Admin access denied**: Run `npm run setup-admin` to create admin user
+4. **JWT/auth issues**: Ensure `JWT_SECRET` is set correctly in `server/.env`
 
 ### Logs
 

@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 /* eslint-disable no-unused-vars */
 import { createContext, useState, useEffect, useContext } from "react";
-import axios from "axios";
+import axiosInstance from "./axiosConfig";
 
 export const AuthContext = createContext({
   isAuthenticated: null,
@@ -46,12 +46,7 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem("token");
       if (token) {
         try {
-          const response = await axios.get(
-            "https://odoohackathon-h2x5.onrender.com/api/auth/verify",
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
+          const response = await axiosInstance.get("/api/auth/verify");
           if (response.data.user) {
             setUser(response.data.user);
             setIsAuthenticated(true);

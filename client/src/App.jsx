@@ -6,25 +6,18 @@ import "./App.css";
 
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
-import StackItQAPage from "./Pages/Homepage";
-import AskQuestionPage from "./Pages/AskQuestion";
-import QuestionDetail from "./Pages/QuestionDetail";
 import ProfilePage from "./Pages/ProfilePage";
-import AdminDashboard from "./Pages/AdminDashboard";
 import ProtectedRoute from "./Authorisation/ProtectedRoute";
-import { AuthProvider } from "./Authorisation/AuthProvider";
-import Navbar from "./components/Navbar/Navbar";
+import { AuthProvider, useAuth } from "./Authorisation/AuthProvider";
 
 function App() {
   return (
     <AuthProvider>
       <div className="App">
         <BrowserRouter>
-          <Navbar />
           <ToastContainer />
           <Routes>
-            <Route path="/ask-question" element={<AskQuestionPage />} />
-            <Route path="/question/:id" element={<QuestionDetail />} />
+            <Route path="/" element={<AuthHome />} />
             <Route
               path="/profile"
               element={
@@ -33,15 +26,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/" element={<StackItQAPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
           </Routes>
@@ -49,6 +33,16 @@ function App() {
       </div>
     </AuthProvider>
   );
+}
+
+function AuthHome() {
+  const { isAuthenticated } = useAuth();
+
+  if (isAuthenticated === null) {
+    return <div>Loading...</div>;
+  }
+
+  return <Navigate to={isAuthenticated ? "/profile" : "/login"} replace />;
 }
 
 export default App;

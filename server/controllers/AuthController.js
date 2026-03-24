@@ -449,6 +449,4 @@ module.exports = {
   getProfile,
   updateProfile,
   logout,
-  promoteToAdmin,
-  demoteFromAdmin,
 };

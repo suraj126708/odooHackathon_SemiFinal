@@ -1,12 +1,14 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: "https://odoohackathon-h2x5.onrender.com",
+  baseURL: "http://localhost:8080", // Update with your backend URL
   timeout: 10000, // 10 second timeout
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // Enable credentials for CORS
+  // We send JWT via `Authorization` header (no cookies needed),
+  // so credentials/cookies are not required.
+  withCredentials: false,
 });
 
 // Request interceptor
