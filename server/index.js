@@ -1,17 +1,16 @@
+require("dotenv").config();
 const bodyParser = require("body-parser");
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
 
 const AuthRouter = require("./routes/AuthRouter");
-const connectDB = require("./models/db");
-const seedData = require("./seed-data"); // 👈 import seed
+const { connectDB } = require("./models/db");
+const seedData = require("./seed-data");
 
 const app = express();
-require("dotenv").config();
 
-// Connect DB
-connectDB();
+require("./models/User");
 
 const PORT = process.env.PORT || 8080;
 
@@ -89,14 +88,22 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 🚀 START SERVER + RUN SEED
-app.listen(PORT, async () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+async function start() {
+  await connectDB();
 
-  try {
-    await seedData(); // 👈 run seed on start
-    console.log("🌱 Seed data executed");
-  } catch (err) {
-    console.log("⚠️ Seed skipped or failed:", err.message);
-  }
+  app.listen(PORT, async () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+
+    try {
+      await seedData();
+      console.log("🌱 Seed data executed");
+    } catch (err) {
+      console.log("⚠️ Seed skipped or failed:", err.message);
+    }
+  });
+}
+
+start().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });

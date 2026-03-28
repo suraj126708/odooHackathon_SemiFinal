@@ -1,12 +1,11 @@
-const mongoose = require("mongoose");
+require("dotenv").config();
 const bcrypt = require("bcrypt");
+const { sequelize, connectDB } = require("./models/db");
+require("./models/User");
 const { User } = require("./models");
 
-const MONGODB_URI =
-  process.env.MONGODB_URI || "mongodb://localhost:27017/odoo_prefinal";
-
 const upsertUser = async ({ name, email, username, password, role }) => {
-  const existing = await User.findOne({ email });
+  const existing = await User.findOne({ where: { email } });
 
   if (existing) {
     console.log(`⚡ ${email} already exists, skipping...`);
@@ -15,7 +14,7 @@ const upsertUser = async ({ name, email, username, password, role }) => {
 
   const hashedPassword = await bcrypt.hash(password, 12);
 
-  const user = new User({
+  const user = await User.create({
     name,
     email,
     username,
@@ -23,19 +22,11 @@ const upsertUser = async ({ name, email, username, password, role }) => {
     role,
   });
 
-  await user.save();
   console.log(`👤 ${role} user created: ${email}`);
-
   return user;
 };
 
-// 👇 MAIN SEED FUNCTION (export this)
 const seedData = async () => {
-  // ⚠️ Only connect if not already connected
-  if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(MONGODB_URI);
-  }
-
   await upsertUser({
     name: "Demo User",
     email: "demo@gmail.com",
@@ -55,5 +46,15 @@ const seedData = async () => {
   console.log("🌱 Seeding completed");
 };
 
-// 👇 export for server usage
 module.exports = seedData;
+
+if (require.main === module) {
+  connectDB()
+    .then(() => seedData())
+    .then(() => sequelize.close())
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
+}
