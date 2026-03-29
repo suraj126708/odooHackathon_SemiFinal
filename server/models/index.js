@@ -1,26 +1,8 @@
-// const User = require('./User');
-// const Company = require('./Company');
-
-// // 1-to-Many: A Company has many Users
-// Company.hasMany(User, { foreignKey: 'companyId' });
-// User.belongsTo(Company, { foreignKey: 'companyId' });
-
-// // 1-to-Many (Self-Referential): A Manager (User) has many Employees (Users)
-// User.hasMany(User, { as: 'Subordinates', foreignKey: 'managerId' });
-// User.belongsTo(User, { as: 'Manager', foreignKey: 'managerId' });
-
-// module.exports = { User, Company };
-
-
 const Company = require("./Company");
 const User = require("./User");
 const Expense = require("./Expenses");
 const ExpenseApproval = require("./expenseApproval");
 const ApprovalRule = require("./approvalRules");
-
-// ======================
-// 🔗 ASSOCIATIONS
-// ======================
 
 // Company → Users
 Company.hasMany(User, { foreignKey: "company_id" });

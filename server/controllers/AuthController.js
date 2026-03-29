@@ -11,20 +11,22 @@ const {
 // --- Helper to fetch currency ---
 const getCurrencyByCountry = async (countryName) => {
   try {
-    const response = await fetch("https://restcountries.com/v3.1/all?fields=name,currencies");
+    const response = await fetch(
+      "https://restcountries.com/v3.1/all?fields=name,currencies",
+    );
     const countries = await response.json();
-    
+
     const countryData = countries.find(
-      (c) => c.name.common.toLowerCase() === countryName.toLowerCase()
+      (c) => c.name.common.toLowerCase() === countryName.toLowerCase(),
     );
 
     if (countryData && countryData.currencies) {
-      return Object.keys(countryData.currencies)[0]; 
+      return Object.keys(countryData.currencies)[0];
     }
-    return "USD"; 
+    return "USD";
   } catch (error) {
     console.error("Error fetching currency:", error);
-    return "USD"; 
+    return "USD";
   }
 };
 
@@ -58,48 +60,48 @@ const signUp = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
-    const { companyName, country, name, email, password, username, bio } = req.body;
+    // Removed username, bio, profile picture from here since they aren't in the DB anymore
+    const { companyName, country, name, email, password } = req.body;
 
+    // 1. Check ONLY email now (username is gone)
     const existingUser = await User.findOne({
-      where: { [Op.or]: [{ email }, { username }] },
+      where: { email },
     });
 
     if (existingUser) {
       await transaction.rollback();
-      const conflictField = existingUser.email === email ? "email" : "username";
       return res.status(409).json({
-        message: `User already exists with this ${conflictField}`,
+        message: "User already exists with this email",
         success: false,
-        field: conflictField,
+        field: "email",
       });
     }
 
-    const profilePicture = req.file
-      ? convertToImageUrl(req.file.path, req)
-      : null;
-
-    // 1. Fetch Currency
+    // 2. Fetch Currency
     const baseCurrency = await getCurrencyByCountry(country);
 
-    // 2. Create Company
-    const newCompany = await Company.create({
-      name: companyName,
-      country: country,
-      baseCurrency: baseCurrency
-    }, { transaction });
+    // 3. Create Company
+    const newCompany = await Company.create(
+      {
+        name: companyName,
+        country: country,
+        baseCurrency: baseCurrency,
+      },
+      { transaction },
+    );
 
-    // 3. Create Admin User
-    const newUser = await User.create({
-      name,
-      email,
-      username,
-      password: await bcrypt.hash(password, 12),
-      profilePicture,
-      bio: bio || "",
-      role: "Admin", // Automatically assign Admin role
-      companyId: newCompany.id,
-      managerId: null 
-    }, { transaction });
+    // 4. Create Admin User (MATCHING YOUR NEW SCHEMA EXACTLY)
+    const newUser = await User.create(
+      {
+        name: name,
+        email: email,
+        password_hash: await bcrypt.hash(password, 12), // Changed to password_hash
+        role: "admin", // Must be lowercase 'admin' to match your ENUM
+        company_id: newCompany.id, // Changed to company_id
+        manager_id: null, // Changed to manager_id
+      },
+      { transaction },
+    );
 
     await transaction.commit();
 
@@ -108,33 +110,29 @@ const signUp = async (req, res) => {
         email: newUser.email,
         _id: newUser.id,
         role: newUser.role,
-        companyId: newUser.companyId
+        company_id: newUser.company_id,
       },
       process.env.JWT_SECRET || "your-secret-key",
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
-    const userResponse = processUserForResponse(newUser, req);
+    // Since we simplified the model, let's simplify the response
     res.status(201).json({
       message: "Company and Admin registered successfully",
       success: true,
       token: jwtToken,
-      user: toPublicUser(userResponse),
-      company: newCompany
+      user: {
+        _id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        company_id: newUser.company_id,
+      },
+      company: newCompany,
     });
   } catch (err) {
     await transaction.rollback();
     console.error("SignUp Error:", err);
-
-    if (err instanceof UniqueConstraintError) {
-      const field = err.errors?.[0]?.path || "field";
-      return res.status(409).json({
-        message: `This ${field} is already taken`,
-        success: false,
-        field,
-      });
-    }
-
     res.status(500).json({
       message: "Internal server error during registration",
       success: false,
@@ -148,12 +146,17 @@ const login = async (req, res) => {
 
     const user = await User.unscoped().findOne({ where: { email } });
     if (!user) {
-      return res.status(401).json({ message: "Invalid email or password", success: false });
+      return res
+        .status(401)
+        .json({ message: "Invalid email or password", success: false });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // Compare with password_hash now
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: "Invalid email or password", success: false });
+      return res
+        .status(401)
+        .json({ message: "Invalid email or password", success: false });
     }
 
     const jwtToken = jwt.sign(
@@ -161,22 +164,29 @@ const login = async (req, res) => {
         email: user.email,
         _id: user.id,
         role: user.role,
-        companyId: user.companyId // Added companyId
+        company_id: user.company_id,
       },
       process.env.JWT_SECRET || "your-secret-key",
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
-    const userResponse = processUserForResponse(user, req);
     res.status(200).json({
       message: "Login successful",
       success: true,
       token: jwtToken,
-      user: toPublicUser(userResponse),
+      user: {
+        _id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        company_id: user.company_id,
+      },
     });
   } catch (err) {
     console.error("Login Error:", err);
-    res.status(500).json({ message: "Internal server error during login", success: false });
+    res
+      .status(500)
+      .json({ message: "Internal server error during login", success: false });
   }
 };
 const getProfile = async (req, res) => {
@@ -220,7 +230,8 @@ const updateProfile = async (req, res) => {
     const updates = {};
     if (name) updates.name = name;
     if (bio !== undefined) updates.bio = bio;
-    if (req.file) updates.profilePicture = convertToImageUrl(req.file.path, req);
+    if (req.file)
+      updates.profilePicture = convertToImageUrl(req.file.path, req);
 
     await user.update(updates);
 

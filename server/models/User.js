@@ -1,6 +1,6 @@
-/*const { DataTypes } = require("sequelize");
+const { DataTypes } = require("sequelize");
 const { sequelize } = require("./db");
-
+/*
 const User = sequelize.define(
   "User",
   {
@@ -33,8 +33,6 @@ const User = sequelize.define(
 
 module.exports = User;*/
 
-
-
 // const { DataTypes } = require("sequelize");
 // const { sequelize } = require("./db");
 
@@ -58,7 +56,7 @@ module.exports = User;*/
 //     // Foreign key for the Company
 //     companyId: {
 //       type: DataTypes.INTEGER.UNSIGNED,
-//       allowNull: false, 
+//       allowNull: false,
 //     },
 //     // Self-referencing foreign key for Manager
 //     managerId: {
@@ -78,8 +76,6 @@ module.exports = User;*/
 
 // module.exports = User;
 
-
-
 const User = sequelize.define("User", {
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
   company_id: { type: DataTypes.INTEGER, allowNull: false },
@@ -88,5 +84,7 @@ const User = sequelize.define("User", {
   password_hash: DataTypes.STRING,
   role: DataTypes.ENUM("admin", "manager", "employee"),
   manager_id: { type: DataTypes.INTEGER, allowNull: true },
-  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 });
+
+module.exports = User;

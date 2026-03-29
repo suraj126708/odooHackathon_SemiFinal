@@ -1,3 +1,6 @@
+const { sequelize } = require("./db");
+const { DataTypes } = require("sequelize");
+
 const Expense = sequelize.define("Expense", {
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
   company_id: DataTypes.INTEGER,
@@ -12,5 +15,7 @@ const Expense = sequelize.define("Expense", {
   status: DataTypes.ENUM("draft", "pending", "approved", "rejected"),
   current_step: { type: DataTypes.INTEGER, defaultValue: 0 },
   created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-  updated_at: DataTypes.DATE
+  updated_at: DataTypes.DATE,
 });
+
+module.exports = Expense;
