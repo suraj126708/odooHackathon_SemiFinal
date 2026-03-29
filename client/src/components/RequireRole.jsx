@@ -13,6 +13,12 @@ export function RequireAuth({ children }) {
   return children;
 }
 
+function userHasAllowedRole(user, allowed) {
+  const list =
+    user?.roles?.length > 0 ? user.roles : [user?.role].filter(Boolean);
+  return list.some((r) => allowed.includes(r));
+}
+
 export function RequireRole({ roles, children }) {
   const { isAuthenticated, user } = useAuth();
   const location = useLocation();
@@ -21,8 +27,13 @@ export function RequireRole({ roles, children }) {
       <Navigate to="/login" replace state={{ from: location.pathname }} />
     );
   }
-  if (!roles.includes(user?.role)) {
-    return <Navigate to={getHomePathForRole(user?.role)} replace />;
+  if (!userHasAllowedRole(user, roles)) {
+    return (
+      <Navigate
+        to={getHomePathForRole(user?.role, user?.roles)}
+        replace
+      />
+    );
   }
   return children;
 }

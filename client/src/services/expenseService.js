@@ -139,7 +139,13 @@ export async function submitExpensePayloadToServer(payload) {
 }
 
 export async function fetchMyExpenses(employeeName = "") {
-  const localDrafts = loadRaw().filter((e) => e.status === "draft");
+  const localDrafts = loadRaw().filter(
+    (e) =>
+      e.status === "draft" &&
+      (employeeName
+        ? String(e.employeeName || "").trim() === String(employeeName).trim()
+        : true),
+  );
   let serverRows = [];
   try {
     const { data } = await axiosInstance.get("/api/expenses/mine");

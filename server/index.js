@@ -8,6 +8,8 @@ const { connectDB } = require("./models/db");
 const seedData = require("./seed-data");
 
 const AuthRouter = require("./routes/AuthRouter");
+const { forgotPassword } = require("./controllers/AuthController");
+const { forgotPasswordValidation } = require("./middlewares/AuthMiddleware");
 const AdminRouter = require("./routes/AdminRouter");
 const UserRouter = require("./routes/UserRouter");
 const ExpenseRouter = require("./routes/ExpenseRouter");
@@ -69,7 +71,12 @@ app.options(
 // Static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Routes
+// Routes (forgot-password registered here first so it always resolves after server restarts)
+app.post(
+  "/api/auth/forgot-password",
+  forgotPasswordValidation,
+  forgotPassword,
+);
 app.use("/api/auth", AuthRouter);
 app.use("/api/admin", AdminRouter);
 app.use("/api/users", UserRouter);

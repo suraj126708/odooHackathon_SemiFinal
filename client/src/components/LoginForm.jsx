@@ -2,7 +2,7 @@ import { useState, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { AuthContext } from "../context/AuthContext";
-import { login as loginApi } from "../services/authService";
+import { login as loginApi, forgotPassword } from "../services/authService";
 import { getHomePathForRole } from "../lib/dashboard-nav";
 import { toast } from "react-toastify";
 import {
@@ -27,6 +27,7 @@ export default function LoginForm() {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const onChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -50,11 +51,30 @@ export default function LoginForm() {
       login(response.token, response.user);
       localStorage.setItem("rms_role", response.user.role);
       toast.success("Login successful!");
-      navigate(getHomePathForRole(response.user.role));
+      navigate(
+        getHomePathForRole(response.user.role, response.user.roles),
+      );
     } catch (ex) {
       toast.error(ex.message || "Login failed. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const email = form.email.trim();
+    if (!email) {
+      toast.error("Enter your email above first.");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const msg = await forgotPassword(email);
+      toast.success(msg || "Check your email for a new temporary password.");
+    } catch (ex) {
+      toast.error(ex.message || "Could not send reset email.");
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -125,9 +145,14 @@ export default function LoginForm() {
             </div>
 
             <div className="flex flex-wrap justify-between gap-2 text-sm">
-              <Link to="#" className="text-cyan-400 hover:underline">
-                Forgot password?
-              </Link>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={forgotLoading}
+                className="text-cyan-400 hover:underline disabled:opacity-50"
+              >
+                {forgotLoading ? "Sending…" : "Forgot password?"}
+              </button>
               <Link to="/register" className="text-cyan-400 hover:underline">
                 Create account
               </Link>

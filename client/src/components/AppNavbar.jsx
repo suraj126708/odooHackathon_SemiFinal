@@ -14,7 +14,9 @@ export default function AppNavbar() {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const role = user?.role;
-  const roleNavItems = role ? getSidebarItemsForRole(role) : [];
+  const roleNavItems = user
+    ? getSidebarItemsForRole(role, user?.roles)
+    : [];
 
   const handleLogout = () => {
     logout();
@@ -26,7 +28,11 @@ export default function AppNavbar() {
     <header className="sticky top-0 z-50 border-b border-white/10 bg-black/70 shadow-glow-inset backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 md:px-6">
         <Link
-          to={isAuthenticated ? getHomePathForRole(role) : "/"}
+          to={
+            isAuthenticated
+              ? getHomePathForRole(role, user?.roles)
+              : "/"
+          }
           className="flex shrink-0 items-center gap-2 font-semibold tracking-tight text-white transition-transform duration-200 hover:scale-[1.02]"
         >
           <span className="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-sm text-cyan-400 shadow-glow-cyan-soft">

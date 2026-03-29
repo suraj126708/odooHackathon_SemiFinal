@@ -1,9 +1,19 @@
-const { Op, UniqueConstraintError } = require("sequelize");
 const { User, Company } = require("../models"); // Ensure Company is exported from models/index.js
 const { sequelize } = require("../models/db"); // Needed for transactions
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const { sendLoginCredentialsEmail } = require("../utils/mailer");
+const {
+  primaryRole,
+  rolesFromUserRow,
+  tokenRolesPayload,
+} = require("../utils/roleUtils");
+
+const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const generateTempPassword = () =>
+  crypto.randomBytes(12).toString("base64url").slice(0, 16);
 const {
   convertToImageUrl,
   convertToImageUrlStatic,
@@ -35,9 +45,17 @@ const processUserForResponse = (user, req) => {
   const raw = user.get ? user.get({ plain: true }) : { ...user };
   const { id, ...rest } = raw;
   delete rest.password;
+  delete rest.password_hash;
   const userObj = { _id: id, ...rest };
+  const roles = rolesFromUserRow({
+    roles: userObj.roles,
+    role: userObj.role,
+  });
+  const pr = primaryRole(roles);
   return {
     ...userObj,
+    role: pr,
+    roles: roles.length ? roles : [pr],
     profilePicture: userObj.profilePicture
       ? req
         ? convertToImageUrl(userObj.profilePicture, req)
@@ -46,16 +64,24 @@ const processUserForResponse = (user, req) => {
   };
 };
 
-const toPublicUser = (userResponse) => ({
-  _id: userResponse._id,
-  name: userResponse.name,
-  email: userResponse.email,
-  username: userResponse.username,
-  profilePicture: userResponse.profilePicture,
-  bio: userResponse.bio,
-  role: userResponse.role,
-  companyId: userResponse.companyId, // Added companyId
-});
+const toPublicUser = (userResponse) => {
+  const roles = rolesFromUserRow({
+    roles: userResponse.roles,
+    role: userResponse.role,
+  });
+  const pr = primaryRole(roles);
+  return {
+    _id: userResponse._id,
+    name: userResponse.name,
+    email: userResponse.email,
+    username: userResponse.username,
+    profilePicture: userResponse.profilePicture,
+    bio: userResponse.bio,
+    role: pr,
+    roles: roles.length ? roles : [pr],
+    companyId: userResponse.companyId,
+  };
+};
 
 const signUp = async (req, res) => {
   const transaction = await sequelize.transaction();
@@ -92,14 +118,16 @@ const signUp = async (req, res) => {
     );
 
     // 4. Create Admin User (MATCHING YOUR NEW SCHEMA EXACTLY)
+    const adminRoles = ["admin"];
     const newUser = await User.create(
       {
         name: name,
         email: email,
         password_hash: await bcrypt.hash(password, 12), // Changed to password_hash
-        role: "admin", // Must be lowercase 'admin' to match your ENUM
-        company_id: newCompany.id, // Changed to company_id
-        manager_id: null, // Changed to manager_id
+        role: "admin",
+        roles: adminRoles,
+        company_id: newCompany.id,
+        manager_id: null,
       },
       { transaction },
     );
@@ -118,18 +146,19 @@ const signUp = async (req, res) => {
       console.error("signUp welcome email:", mailErr.message);
     }
 
+    const { role: tokenRole, roles: tokenRoles } = tokenRolesPayload(newUser);
     const jwtToken = jwt.sign(
       {
         email: newUser.email,
         _id: newUser.id,
-        role: newUser.role,
+        role: tokenRole,
+        roles: tokenRoles,
         company_id: newUser.company_id,
       },
       process.env.JWT_SECRET || "your-secret-key",
       { expiresIn: "7d" },
     );
 
-    // Since we simplified the model, let's simplify the response
     res.status(201).json({
       message: "Company and Admin registered successfully",
       success: true,
@@ -138,7 +167,8 @@ const signUp = async (req, res) => {
         _id: newUser.id,
         name: newUser.name,
         email: newUser.email,
-        role: newUser.role,
+        role: tokenRole,
+        roles: tokenRoles,
         company_id: newUser.company_id,
       },
       company: newCompany,
@@ -291,10 +321,64 @@ const logout = async (req, res) => {
   }
 };
 
+const forgotPassword = async (req, res) => {
+  try {
+    const emailRaw = req.body?.email;
+    const emailNorm =
+      typeof emailRaw === "string" ? emailRaw.trim().toLowerCase() : "";
+    if (!emailNorm || !emailRx.test(emailNorm)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid email address.",
+      });
+    }
+
+    const user = await User.unscoped().findOne({
+      where: sequelize.where(
+        sequelize.fn("LOWER", sequelize.col("email")),
+        emailNorm,
+      ),
+    });
+
+    const generic =
+      "If an account exists for this email, a new temporary password has been sent.";
+
+    if (!user) {
+      return res.status(200).json({ success: true, message: generic });
+    }
+
+    const tempPassword = generateTempPassword();
+    await user.update({
+      password_hash: await bcrypt.hash(tempPassword, 12),
+    });
+
+    try {
+      await sendLoginCredentialsEmail({
+        to: user.email,
+        recipientName: user.name,
+        loginEmail: user.email,
+        password: tempPassword,
+        subject: "Password reset — your new temporary password",
+      });
+    } catch (mailErr) {
+      console.error("forgotPassword email:", mailErr.message);
+    }
+
+    return res.status(200).json({ success: true, message: generic });
+  } catch (err) {
+    console.error("forgotPassword:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Could not process password reset.",
+    });
+  }
+};
+
 module.exports = {
   signUp,
   login,
   getProfile,
   updateProfile,
   logout,
+  forgotPassword,
 };

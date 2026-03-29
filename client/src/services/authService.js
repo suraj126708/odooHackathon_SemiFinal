@@ -26,6 +26,20 @@ export const login = async ({ email, password }) => {
   }
 };
 
+export async function forgotPassword(email) {
+  try {
+    const { data } = await axiosInstance.post("/api/auth/forgot-password", {
+      email: email.trim().toLowerCase(),
+    });
+    if (!data?.success) {
+      throw new Error(data?.message || "Request failed");
+    }
+    return data.message || "";
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+}
+
 /* Registration still uses the local mock until signup UI and /api/auth/signup payloads are aligned. */
 const runFakeNetwork = (response, delay = 700) =>
   new Promise((resolve) => setTimeout(() => resolve(response), delay));
@@ -69,7 +83,10 @@ export const register = async ({ name, email, password, country, role }) => {
 
   const existing = users.find((u) => u.email === normalizedEmail);
   if (existing) {
-    return runFakeNetwork({ success: false, message: "Email already in use" }, 600).then((res) => {
+    return runFakeNetwork(
+      { success: false, message: "Email already in use" },
+      600,
+    ).then((res) => {
       const err = new Error(res.message);
       err.status = 409;
       throw err;
@@ -89,5 +106,8 @@ export const register = async ({ name, email, password, country, role }) => {
 
   users = [...users, newUser];
 
-  return runFakeNetwork({ success: true, user: { ...newUser, password: undefined } }, 800);
+  return runFakeNetwork(
+    { success: true, user: { ...newUser, password: undefined } },
+    800,
+  );
 };

@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const { Op, fn, col, where } = require("sequelize");
 const { User, Company } = require("../models");
 const { sendLoginCredentialsEmail } = require("../utils/mailer");
+const { normalizeRoles, primaryRole } = require("../utils/roleUtils");
 
 const stdOk = (res, status, message, data = {}) =>
   res.status(status).json({ success: true, message, data });
@@ -87,7 +88,15 @@ const listCompanyUsers = async (req, res) => {
 
     const users = await User.findAll({
       where: { company_id },
-      attributes: ["id", "name", "email", "role", "manager_id", "company_id"],
+      attributes: [
+        "id",
+        "name",
+        "email",
+        "role",
+        "roles",
+        "manager_id",
+        "company_id",
+      ],
       include: [
         {
           model: User,
@@ -101,11 +110,15 @@ const listCompanyUsers = async (req, res) => {
 
     const payload = users.map((u) => {
       const plain = u.get({ plain: true });
+      const rList = normalizeRoles(
+        plain.roles?.length ? plain.roles : [plain.role],
+      );
       return {
         id: plain.id,
         name: plain.name,
         email: plain.email,
-        role: plain.role,
+        role: primaryRole(rList),
+        roles: rList.length ? rList : [plain.role],
         manager_id: plain.manager_id,
         company_id: plain.company_id,
         managerName: plain.Manager?.name ?? null,
@@ -163,6 +176,7 @@ const sendPasswordInvite = async (req, res) => {
       userId,
       email,
       role,
+      roles: rolesBody,
       managerName,
       managerId,
       managerEmail,
@@ -172,7 +186,15 @@ const sendPasswordInvite = async (req, res) => {
 
     const name = (userName || "").trim();
     const emailNorm = (email || "").trim().toLowerCase();
-    const roleNorm = (role || "").toLowerCase();
+    const normalizedRoles = normalizeRoles(
+      Array.isArray(rolesBody) && rolesBody.length
+        ? rolesBody
+        : role
+          ? [role]
+          : [],
+    );
+
+    const isExistingReset = !createUserIfNew && userId;
 
     if (!name || name.length < 2) {
       return stdErr(res, 400, "User name is required.");
@@ -180,9 +202,13 @@ const sendPasswordInvite = async (req, res) => {
     if (!emailNorm || !emailRx.test(emailNorm)) {
       return stdErr(res, 400, "A valid email is required.");
     }
-    if (!["manager", "employee"].includes(roleNorm)) {
-      return stdErr(res, 400, "Role must be manager or employee.");
+    if (!isExistingReset && !normalizedRoles.length) {
+      return stdErr(res, 400, "Select at least one role.");
     }
+
+    const roleNorm = normalizedRoles.length
+      ? primaryRole(normalizedRoles)
+      : null;
 
     let resolvedManagerId =
       managerId != null && managerId !== "" ? Number(managerId) : null;
@@ -193,7 +219,12 @@ const sendPasswordInvite = async (req, res) => {
     let managerTemporaryPassword;
     let managerInviteEmail = null;
 
-    if (roleNorm === "employee") {
+    const needsManagerLine =
+      !isExistingReset &&
+      normalizedRoles.includes("employee") &&
+      !normalizedRoles.includes("admin");
+
+    if (needsManagerLine) {
       if (resolvedManagerId) {
         const mgr = await User.findOne({
           where: {
@@ -227,6 +258,7 @@ const sendPasswordInvite = async (req, res) => {
           email: me,
           password_hash: await bcrypt.hash(managerTemporaryPassword, 12),
           role: "manager",
+          roles: ["manager"],
           company_id,
           manager_id: null,
         });
@@ -256,7 +288,12 @@ const sendPasswordInvite = async (req, res) => {
       if (!existing) {
         return stdErr(res, 404, "User not found in your company.");
       }
-      await existing.update({ password_hash });
+      const updatePayload = { password_hash };
+      if (normalizedRoles.length) {
+        updatePayload.roles = normalizedRoles;
+        updatePayload.role = primaryRole(normalizedRoles);
+      }
+      await existing.update(updatePayload);
       const mailRes = await sendLoginCredentialsEmail({
         to: existing.email,
         recipientName: existing.name,
@@ -283,6 +320,9 @@ const sendPasswordInvite = async (req, res) => {
             name: existing.name,
             email: existing.email,
             role: existing.role,
+            roles: normalizeRoles(
+              existing.roles?.length ? existing.roles : [existing.role],
+            ),
           },
           emailSent,
           mailFailed,
@@ -304,8 +344,11 @@ const sendPasswordInvite = async (req, res) => {
         email: emailNorm,
         password_hash,
         role: roleNorm,
+        roles: normalizedRoles,
         company_id,
-        manager_id: resolvedManagerId,
+        manager_id: normalizedRoles.includes("admin")
+          ? null
+          : resolvedManagerId,
       });
 
       const mailPieces = [];
@@ -346,6 +389,7 @@ const sendPasswordInvite = async (req, res) => {
             name: newUser.name,
             email: newUser.email,
             role: newUser.role,
+            roles: normalizedRoles,
             manager_id: newUser.manager_id,
           },
           emailSent,

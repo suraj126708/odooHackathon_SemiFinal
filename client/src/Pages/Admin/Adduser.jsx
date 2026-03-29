@@ -43,9 +43,16 @@ function SearchablePerson({
   const wrapRef = useRef(null);
 
   const options = useMemo(() => {
-    let list = onlyRole
-      ? directory.filter((u) => u.role === onlyRole)
-      : directory;
+    let list = directory;
+    if (onlyRole === "manager") {
+      list = directory.filter(
+        (u) =>
+          u.role === "manager" ||
+          (Array.isArray(u.roles) && u.roles.includes("manager")),
+      );
+    } else if (onlyRole) {
+      list = directory.filter((u) => u.role === onlyRole);
+    }
     const q = value.trim().toLowerCase();
     if (!q) return list.slice(0, 10);
     return list
@@ -171,21 +178,24 @@ export default function Adduser() {
       toast.error("Enter a valid email.");
       return;
     }
+    const role = (row.role || "employee").toLowerCase();
+    if (!["employee", "manager", "Director" , "Team Lead" , "CFO", "admin"].includes(role)) {
+      toast.error("Select a valid role.");
+      return;
+    }
     setSendingKey(row.key);
     try {
       const result = await sendUserPasswordInvite({
         userName: row.userName.trim(),
         userId: row.userId,
         email: row.email.trim().toLowerCase(),
-        role: row.role,
+        role,
         managerName: row.managerName.trim() || undefined,
         managerId: row.managerId,
         managerEmail: row.managerEmail.trim() || undefined,
         createUserIfNew: !row.userId,
         createManagerIfNew: Boolean(
-          row.role === "employee" &&
-            row.managerName.trim() &&
-            !row.managerId,
+          role === "employee" && row.managerName.trim() && !row.managerId,
         ),
       });
       const inner = result?.data ?? result;
@@ -229,21 +239,26 @@ export default function Adduser() {
         <Card className="border border-white/10 bg-neutral-950/70 shadow-glow-inset ring-0 backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/20">
           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
             <div>
-              <CardTitle className="text-xl font-bold text-white">Users</CardTitle>
+              <CardTitle className="text-xl font-bold text-white">
+                Users
+              </CardTitle>
               <p className="mt-1 text-sm text-gray-400">
-                Add people, assign roles and manager, then send login credentials
-                by email (when SMTP is configured).
+                Add people, assign roles and manager, then send login
+                credentials by email (when SMTP is configured).
               </p>
             </div>
-            <Button type="button" size="sm" className="shadow-glow-sm" onClick={addRow}>
+            <Button
+              type="button"
+              size="sm"
+              className="shadow-glow-sm"
+              onClick={addRow}
+            >
               New
             </Button>
           </CardHeader>
           <CardContent className="pt-6">
             {loadingUsers && (
-              <p className="mb-4 text-sm text-gray-500">
-                Loading directory…
-              </p>
+              <p className="mb-4 text-sm text-gray-500">Loading directory…</p>
             )}
             <div className="overflow-x-auto rounded-lg border border-white/10 bg-black/30">
               <table className="w-full min-w-[860px] border-collapse text-left text-sm">
@@ -293,7 +308,7 @@ export default function Adduser() {
                             const next = e.target.value;
                             updateRow(row.key, {
                               role: next,
-                              ...(next === "manager"
+                              ...(next === "manager" || next === "admin"
                                 ? {
                                     managerName: "",
                                     managerId: null,
@@ -305,6 +320,10 @@ export default function Adduser() {
                         >
                           <option value="employee">Employee</option>
                           <option value="manager">Manager</option>
+                          <option value="Director">Director</option>
+                          <option value="Team Lead">Team Lead</option>
+                          <option value="CFO">CFO</option>
+                          <option value="admin">Admin</option>
                         </select>
                       </td>
                       <td className="px-3 py-3 align-top">
@@ -363,7 +382,9 @@ export default function Adduser() {
                           disabled={!!sendingKey}
                           onClick={() => handleSendPassword(row)}
                         >
-                          {sendingKey === row.key ? "Sending…" : "Send password"}
+                          {sendingKey === row.key
+                            ? "Sending…"
+                            : "Send password"}
                         </Button>
                       </td>
                     </tr>
@@ -380,7 +401,8 @@ export default function Adduser() {
               Company users
             </CardTitle>
             <p className="text-sm text-gray-400">
-              Everyone in your organization (same company as your admin account).
+              Everyone in your organization (same company as your admin
+              account).
             </p>
           </CardHeader>
           <CardContent className="pt-6">
@@ -423,8 +445,10 @@ export default function Adduser() {
                         >
                           <td className="px-3 py-3 font-medium">{u.name}</td>
                           <td className="px-3 py-3 text-gray-400">{u.email}</td>
-                          <td className="px-3 py-3 capitalize text-gray-300">
-                            {u.role}
+                          <td className="px-3 py-3 text-gray-300">
+                            {Array.isArray(u.roles) && u.roles.length
+                              ? u.roles.join(", ")
+                              : u.role}
                           </td>
                           <td className="px-3 py-3 text-gray-400">
                             {u.managerName ? (

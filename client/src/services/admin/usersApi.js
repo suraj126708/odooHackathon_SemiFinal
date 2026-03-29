@@ -1,11 +1,17 @@
 import axiosInstance from "../../Authorisation/axiosConfig";
 
 function normalizeUser(raw) {
+  const roles = Array.isArray(raw.roles)
+    ? raw.roles.map((r) => String(r).toLowerCase())
+    : raw.role
+      ? [String(raw.role).toLowerCase()]
+      : [];
   return {
     id: String(raw.id ?? raw._id ?? ""),
     name: raw.name ?? "",
     email: raw.email ?? "",
     role: String(raw.role ?? "").toLowerCase(),
+    roles,
     managerName: raw.managerName ?? raw.manager?.name ?? "",
     managerEmail: raw.managerEmail ?? raw.manager?.email ?? "",
   };
