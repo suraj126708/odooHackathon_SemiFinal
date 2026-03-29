@@ -135,21 +135,17 @@ cd frontend && npm run dev
 ### Employee — Expense Submission
 
 ![Submit Expense](./ProjectImages/submit-expense.png)
-![OCR Receipt Scan](./ProjectImages/ocr-scan.png)
-![Expense History](./ProjectImages/expense-history.png)
 
 ### Employee — Approval Timeline
 
-![Expense Detail](./ProjectImages/expense-detail.png)
+![Expense Detail](./ProjectImages/expense-history.png)
 
 ### Manager — Approval Dashboard
 
-![Approval Queue](./ProjectImages/approval-queue.png)
 ![Approve / Reject](./ProjectImages/approve-reject.png)
 
 ### Admin — Dashboard
 
-![Admin Dashboard](./ProjectImages/admin-dashboard.png)
 ![User Management](./ProjectImages/user-management.png)
 ![Approval Rules](./ProjectImages/approval-rules.png)
 
