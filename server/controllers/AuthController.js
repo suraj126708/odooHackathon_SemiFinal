@@ -124,6 +124,7 @@ const signUp = async (req, res) => {
         _id: newUser.id,
         role: newUser.role,
         company_id: newUser.company_id,
+        company_currency: newCompany.currency_code || null,
       },
       process.env.JWT_SECRET || "your-secret-key",
       { expiresIn: "7d" },
@@ -140,6 +141,7 @@ const signUp = async (req, res) => {
         email: newUser.email,
         role: newUser.role,
         company_id: newUser.company_id,
+        company_currency: newCompany.currency_code || null,
       },
       company: newCompany,
     });
@@ -185,12 +187,18 @@ const login = async (req, res) => {
         .json({ message: "Invalid email or password", success: false });
     }
 
+    const company = user.company_id
+      ? await Company.findByPk(user.company_id)
+      : null;
+    const companyCurrency = company?.currency_code || null;
+
     const jwtToken = jwt.sign(
       {
         email: user.email,
         _id: user.id,
         role: user.role,
         company_id: user.company_id,
+        company_currency: companyCurrency,
       },
       process.env.JWT_SECRET || "your-secret-key",
       { expiresIn: "7d" },
@@ -206,6 +214,7 @@ const login = async (req, res) => {
         email: user.email,
         role: user.role,
         company_id: user.company_id,
+        company_currency: companyCurrency,
       },
     });
   } catch (err) {

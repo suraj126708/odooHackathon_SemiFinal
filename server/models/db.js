@@ -1,4 +1,5 @@
 const { Sequelize } = require("sequelize");
+const mysql = require("mysql2/promise");
 
 const stripQuotes = (v) => {
   if (v == null || typeof v !== "string") return v ?? "";
@@ -25,6 +26,26 @@ const sequelize = new Sequelize(mysqlDatabase, mysqlUser, mysqlPassword, {
   logging: false,
 });
 
+const ensureDatabaseExists = async () => {
+  if (!/^[a-zA-Z0-9_]+$/.test(mysqlDatabase)) {
+    throw new Error(
+      `Invalid MYSQL_DATABASE (letters, numbers, underscore only): ${mysqlDatabase}`,
+    );
+  }
+  const port = Number(process.env.MYSQL_PORT) || 3306;
+  const connection = await mysql.createConnection({
+    host: mysqlHost,
+    port,
+    user: mysqlUser,
+    password: mysqlPassword,
+  });
+  try {
+    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${mysqlDatabase}\``);
+  } finally {
+    await connection.end();
+  }
+};
+
 const connectDB = async () => {
   try {
     const port = Number(process.env.MYSQL_PORT) || 3306;
@@ -33,6 +54,7 @@ const connectDB = async () => {
       `${mysqlHost}:${port}/${mysqlDatabase}`,
     );
 
+    await ensureDatabaseExists();
     await sequelize.authenticate();
     console.log("✅ MySQL connected");
 
@@ -40,7 +62,10 @@ const connectDB = async () => {
   } catch (error) {
     console.error(`❌ MySQL Connection Error: ${error.message}`);
     console.error(
-      "💡 Check MYSQL_USER / MYSQL_PASSWORD match your MySQL server.",
+      "💡 Set MYSQL_USER / MYSQL_PASSWORD in server/.env to match: mysql -h 127.0.0.1 -u root -p",
+    );
+    console.error(
+      "💡 Passwords with # in unquoted .env lines break some parsers — use QUOTES: MYSQL_PASSWORD=\"your#pass\"",
     );
     console.error(
       "💡 If the password is correct, try MYSQL_HOST=127.0.0.1 (Windows uses a different client than 'localhost').",

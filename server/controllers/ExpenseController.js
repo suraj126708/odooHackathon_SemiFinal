@@ -1,5 +1,6 @@
 const { Expense, Company, User, ExpenseApproval } = require("../models");
 const { convertCurrency } = require("../utils/currencyUtils");
+const { extractReceiptFromBuffer } = require("../OCR/extractReceipt");
 const { sequelize } = require("../models/db");
 const {
   findApplicableRule,
@@ -10,6 +11,48 @@ const {
   sendExpenseSubmittedToEmployee,
   sendExpensePendingForApprover,
 } = require("../utils/mailer");
+
+/** POST multipart receipt → Gemini OCR (public). Pass companyCurrency (ISO 4217) in form for FX conversion. */
+const parseReceiptOcr = async (req, res) => {
+  try {
+    if (!req.file?.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: "Receipt file (image or PDF) is required.",
+      });
+    }
+
+    let companyCurrency = "INR";
+    const raw = (
+      req.body?.companyCurrency ||
+      req.body?.company_currency ||
+      req.query?.companyCurrency ||
+      ""
+    )
+      .toString()
+      .trim()
+      .toUpperCase();
+    if (raw.length === 3) companyCurrency = raw;
+
+    const data = await extractReceiptFromBuffer(
+      req.file.buffer,
+      req.file.mimetype,
+      companyCurrency,
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "OK",
+      data,
+    });
+  } catch (error) {
+    console.error("parseReceiptOcr:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Could not read receipt.",
+    });
+  }
+};
 
 const listMyExpenses = async (req, res) => {
   try {
@@ -140,6 +183,7 @@ const submitExpense = async (req, res) => {
 };
 
 module.exports = {
+  parseReceiptOcr,
   listMyExpenses,
   submitExpense,
 };

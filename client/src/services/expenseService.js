@@ -232,14 +232,37 @@ export async function submitExpense(id, options = {}) {
   return { ok: true };
 }
 
-export async function parseReceiptStub(file) {
-  await new Promise((r) => setTimeout(r, 500));
-  const base = file?.name?.replace(/\.[^.]+$/, "") || "Receipt";
+/**
+ * Upload receipt to server; Gemini OCR extracts fields and converts amount to company currency.
+ * @param {File} file
+ * @param {{ companyCurrency?: string }} [opts] - Used when not logged in (no JWT). Logged-in users use company from token.
+ */
+export async function parseReceiptStub(file, opts = {}) {
+  if (!file) throw new Error("No file selected");
+  const fd = new FormData();
+  fd.append("receipt", file);
+  const cc = (opts.companyCurrency || DEFAULT_BASE_CURRENCY).toUpperCase().slice(0, 3);
+  fd.append("companyCurrency", cc);
+  const { data } = await axiosInstance.post("/api/expenses/parse-receipt", fd);
+  if (!data?.success) {
+    throw new Error(data?.message || "Could not parse receipt");
+  }
+  const d = data.data || {};
   return {
-    description: `${base}`.slice(0, 120),
-    amount: null,
-    currencyCode: null,
-    expenseDate: null,
+    description: d.description || "",
+    amount:
+      d.amount != null && Number.isFinite(Number(d.amount))
+        ? Number(d.amount)
+        : null,
+    currencyCode: d.currencyCode || DEFAULT_BASE_CURRENCY,
+    expenseDate: d.expenseDate || null,
+    category: d.category || "Other",
+    remarks: d.remarks || "",
+    detailedDescription: d.detailedDescription || "",
+    amountInCompanyCurrency:
+      d.amountInCompanyCurrency != null
+        ? Number(d.amountInCompanyCurrency)
+        : null,
   };
 }
 

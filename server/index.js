@@ -1,3 +1,9 @@
+// Node 21+ removed SlowBuffer; buffer-equal-constant-time (via jwa → jsonwebtoken) still needs it.
+const _buf = require("buffer");
+if (_buf.SlowBuffer === undefined) {
+  _buf.SlowBuffer = _buf.Buffer;
+}
+
 require("dotenv").config();
 const bodyParser = require("body-parser");
 const express = require("express");

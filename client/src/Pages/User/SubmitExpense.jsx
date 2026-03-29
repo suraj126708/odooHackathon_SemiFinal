@@ -170,7 +170,8 @@ function defaultUploadForm() {
 export default function SubmitExpense() {
   const { user } = useContext(AuthContext);
   const employeeName = user?.name || "You";
-  const baseCurrency = DEFAULT_BASE_CURRENCY;
+  const baseCurrency = user?.company_currency || DEFAULT_BASE_CURRENCY;
+  const ocrCurrencyOpts = { companyCurrency: baseCurrency };
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -259,11 +260,18 @@ export default function SubmitExpense() {
     uploadReceiptFileRef.current = file;
     setUploadParsing(true);
     try {
-      const parsed = await parseReceiptStub(file);
+      const parsed = await parseReceiptStub(file, ocrCurrencyOpts);
       setUploadForm((f) => ({
         ...f,
         receiptFileName: file.name,
         description: parsed.description || f.description,
+        ...(parsed.category ? { category: parsed.category } : {}),
+        ...(parsed.remarks != null && String(parsed.remarks).trim() !== ""
+          ? { remarks: parsed.remarks }
+          : {}),
+        ...(parsed.detailedDescription
+          ? { detailedDescription: parsed.detailedDescription }
+          : {}),
         ...(parsed.amount != null &&
         Number.isFinite(Number(parsed.amount)) &&
         Number(parsed.amount) > 0
@@ -350,11 +358,24 @@ export default function SubmitExpense() {
     if (!file || !id) return;
     draftFilesRef.current.set(id, file);
     try {
-      const parsed = await parseReceiptStub(file);
+      const parsed = await parseReceiptStub(file, ocrCurrencyOpts);
       await persistPatch(id, {
         receiptFileName: file.name,
         ...(parsed.description ? { description: parsed.description } : {}),
         ...(parsed.expenseDate ? { expenseDate: parsed.expenseDate } : {}),
+        ...(parsed.amount != null &&
+        Number.isFinite(Number(parsed.amount)) &&
+        Number(parsed.amount) > 0
+          ? { amount: Number(parsed.amount) }
+          : {}),
+        ...(parsed.currencyCode ? { currencyCode: parsed.currencyCode } : {}),
+        ...(parsed.category ? { category: parsed.category } : {}),
+        ...(parsed.remarks != null && String(parsed.remarks).trim() !== ""
+          ? { remarks: parsed.remarks }
+          : {}),
+        ...(parsed.detailedDescription
+          ? { detailedDescription: parsed.detailedDescription }
+          : {}),
       });
       toast.success("Receipt linked and fields updated");
     } catch (err) {
