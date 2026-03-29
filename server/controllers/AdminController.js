@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const { Op, fn, col, where } = require("sequelize");
 const { User, Company } = require("../models");
+const { sendLoginCredentialsEmail } = require("../utils/mailer");
 
 const stdOk = (res, status, message, data = {}) =>
   res.status(status).json({ success: true, message, data });
@@ -52,11 +53,28 @@ const createCompany = async (req, res) => {
         name: company.name,
         country: company.country,
         currency_code: company.currency_code,
+        created_at: company.created_at,
       },
     });
   } catch (err) {
     console.error("createCompany:", err);
     return stdErr(res, 500, "Could not create company.");
+  }
+};
+
+const listCompanies = async (req, res) => {
+  try {
+    const companies = await Company.findAll({
+      attributes: ["id", "name", "country", "currency_code", "created_at"],
+      order: [
+        ["created_at", "DESC"],
+        ["id", "DESC"],
+      ],
+    });
+    return stdOk(res, 200, "OK", { companies });
+  } catch (err) {
+    console.error("listCompanies:", err);
+    return stdErr(res, 500, "Could not load companies.");
   }
 };
 
@@ -70,10 +88,32 @@ const listCompanyUsers = async (req, res) => {
     const users = await User.findAll({
       where: { company_id },
       attributes: ["id", "name", "email", "role", "manager_id", "company_id"],
+      include: [
+        {
+          model: User,
+          as: "Manager",
+          attributes: ["id", "name", "email"],
+          required: false,
+        },
+      ],
       order: [["name", "ASC"]],
     });
 
-    return stdOk(res, 200, "OK", { users });
+    const payload = users.map((u) => {
+      const plain = u.get({ plain: true });
+      return {
+        id: plain.id,
+        name: plain.name,
+        email: plain.email,
+        role: plain.role,
+        manager_id: plain.manager_id,
+        company_id: plain.company_id,
+        managerName: plain.Manager?.name ?? null,
+        managerEmail: plain.Manager?.email ?? null,
+      };
+    });
+
+    return stdOk(res, 200, "OK", { users: payload });
   } catch (err) {
     console.error("listCompanyUsers:", err);
     return stdErr(res, 500, "Could not load users.");
@@ -92,6 +132,23 @@ async function findManagerByName(company_id, managerName) {
       ],
     },
   });
+}
+
+function summarizeMailResults(results) {
+  const mail = (results || []).map((r) => ({
+    to: r.to,
+    sent: Boolean(r.sent),
+    skipped: Boolean(r.skipped),
+    error: r.error || null,
+  }));
+  const anyFailed = (results || []).some(
+    (r) => !r.sent && !r.skipped && r.error,
+  );
+  return {
+    emailSent: (results || []).some((r) => r.sent),
+    mailFailed: anyFailed,
+    mail,
+  };
 }
 
 const sendPasswordInvite = async (req, res) => {
@@ -134,6 +191,7 @@ const sendPasswordInvite = async (req, res) => {
     }
 
     let managerTemporaryPassword;
+    let managerInviteEmail = null;
 
     if (roleNorm === "employee") {
       if (resolvedManagerId) {
@@ -162,6 +220,7 @@ const sendPasswordInvite = async (req, res) => {
         if (emailTaken) {
           return stdErr(res, 409, "Manager email is already registered.");
         }
+        managerInviteEmail = me;
         managerTemporaryPassword = generateTempPassword();
         const newMgr = await User.create({
           name: (managerName || "").trim(),
@@ -198,16 +257,38 @@ const sendPasswordInvite = async (req, res) => {
         return stdErr(res, 404, "User not found in your company.");
       }
       await existing.update({ password_hash });
-      return stdOk(res, 200, "Temporary password set.", {
-        temporaryPassword: tempPassword,
-        managerTemporaryPassword: managerTemporaryPassword || undefined,
-        user: {
-          id: existing.id,
-          name: existing.name,
-          email: existing.email,
-          role: existing.role,
-        },
+      const mailRes = await sendLoginCredentialsEmail({
+        to: existing.email,
+        recipientName: existing.name,
+        loginEmail: existing.email,
+        password: tempPassword,
+        subject: "Your new temporary password",
       });
+      const { emailSent, mailFailed, mail } = summarizeMailResults([
+        mailRes,
+      ]);
+      return stdOk(
+        res,
+        200,
+        emailSent
+          ? "Temporary password set and sent by email."
+          : mailFailed
+            ? "Temporary password set; email delivery failed."
+            : "Temporary password set.",
+        {
+          temporaryPassword: tempPassword,
+          managerTemporaryPassword: managerTemporaryPassword || undefined,
+          user: {
+            id: existing.id,
+            name: existing.name,
+            email: existing.email,
+            role: existing.role,
+          },
+          emailSent,
+          mailFailed,
+          mail,
+        },
+      );
     }
 
     if (createUserIfNew) {
@@ -227,17 +308,51 @@ const sendPasswordInvite = async (req, res) => {
         manager_id: resolvedManagerId,
       });
 
-      return stdOk(res, 201, "User created with a temporary password.", {
-        temporaryPassword: tempPassword,
-        managerTemporaryPassword: managerTemporaryPassword || undefined,
-        user: {
-          id: newUser.id,
-          name: newUser.name,
-          email: newUser.email,
-          role: newUser.role,
-          manager_id: newUser.manager_id,
-        },
+      const mailPieces = [];
+      if (managerTemporaryPassword && managerInviteEmail) {
+        const m = await sendLoginCredentialsEmail({
+          to: managerInviteEmail,
+          recipientName: (managerName || "").trim(),
+          loginEmail: managerInviteEmail,
+          password: managerTemporaryPassword,
+          subject: "Your manager account — login details",
+        });
+        mailPieces.push(m);
+      }
+      const uMail = await sendLoginCredentialsEmail({
+        to: emailNorm,
+        recipientName: name,
+        loginEmail: emailNorm,
+        password: tempPassword,
+        subject: "Your account — login details",
       });
+      mailPieces.push(uMail);
+      const { emailSent, mailFailed, mail } =
+        summarizeMailResults(mailPieces);
+
+      return stdOk(
+        res,
+        201,
+        emailSent
+          ? "User created and credentials sent by email."
+          : mailFailed
+            ? "User created; email delivery failed for one or more messages."
+            : "User created with a temporary password.",
+        {
+          temporaryPassword: tempPassword,
+          managerTemporaryPassword: managerTemporaryPassword || undefined,
+          user: {
+            id: newUser.id,
+            name: newUser.name,
+            email: newUser.email,
+            role: newUser.role,
+            manager_id: newUser.manager_id,
+          },
+          emailSent,
+          mailFailed,
+          mail,
+        },
+      );
     }
 
     return stdErr(res, 400, "Invalid invite request.");
@@ -249,6 +364,7 @@ const sendPasswordInvite = async (req, res) => {
 
 module.exports = {
   createCompany,
+  listCompanies,
   listCompanyUsers,
   sendPasswordInvite,
 };

@@ -131,27 +131,26 @@ function SearchablePerson({
 
 export default function Adduser() {
   const [rows, setRows] = useState(() => [emptyRow()]);
-  const [directory, setDirectory] = useState([]);
-  const [loadingDir, setLoadingDir] = useState(true);
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const [sendingKey, setSendingKey] = useState(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoadingDir(true);
-      try {
-        const list = await fetchDirectoryUsers();
-        if (!cancelled) setDirectory(list);
-      } catch {
-        if (!cancelled) setDirectory([]);
-      } finally {
-        if (!cancelled) setLoadingDir(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const loadUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    try {
+      const list = await fetchDirectoryUsers();
+      setUsers(Array.isArray(list) ? list : []);
+    } catch {
+      setUsers([]);
+      toast.error("Could not load users.");
+    } finally {
+      setLoadingUsers(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   const updateRow = useCallback((key, patch) => {
     setRows((prev) =>
@@ -190,6 +189,7 @@ export default function Adduser() {
         ),
       });
       const inner = result?.data ?? result;
+      const emailSent = inner?.emailSent === true;
       const parts = [];
       if (inner?.temporaryPassword) {
         parts.push(`User temp password: ${inner.temporaryPassword}`);
@@ -197,12 +197,21 @@ export default function Adduser() {
       if (inner?.managerTemporaryPassword) {
         parts.push(`Manager temp password: ${inner.managerTemporaryPassword}`);
       }
-      toast.success(
-        parts.length > 0
-          ? parts.join(" · ")
-          : result?.message ||
-              "Done. Share credentials securely (email is not configured on the server).",
-      );
+      if (emailSent) {
+        toast.success(
+          result?.message ||
+            inner?.message ||
+            "Credentials sent by email.",
+        );
+      } else if (parts.length > 0) {
+        toast.success(parts.join(" · "));
+      } else {
+        toast.success(
+          result?.message ||
+            "Done. Configure SMTP on the server to email credentials automatically.",
+        );
+      }
+      await loadUsers();
     } catch (e) {
       toast.error(
         e?.response?.data?.message ||
@@ -216,143 +225,231 @@ export default function Adduser() {
 
   return (
     <DashboardLayout sidebar={<DashboardSidebar items={adminSidebarItems} />}>
-      <Card className="mx-auto max-w-6xl border border-white/10 bg-neutral-950/70 shadow-glow-inset ring-0 backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/20">
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
-          <div>
-            <CardTitle className="text-xl font-bold text-white">Users</CardTitle>
-            <p className="mt-1 text-sm text-gray-400">
-              Add people, assign roles and manager, then send a temporary
-              password by email.
-            </p>
-          </div>
-          <Button type="button" size="sm" className="shadow-glow-sm" onClick={addRow}>
-            New
-          </Button>
-        </CardHeader>
-        <CardContent className="pt-6">
-          {loadingDir && (
-            <p className="mb-4 text-sm text-gray-500">
-              Loading directory…
-            </p>
-          )}
-          <div className="overflow-x-auto rounded-lg border border-white/10 bg-black/30">
-            <table className="w-full min-w-[860px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-white/10 bg-white/[0.03]">
-                  <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
-                    User (name)
-                  </th>
-                  <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
-                    Role
-                  </th>
-                  <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
-                    Manager
-                  </th>
-                  <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
-                    Email
-                  </th>
-                  <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.key}
-                    className="border-b border-white/10 text-gray-200 last:border-b-0"
-                  >
-                    <td className="px-3 py-3 align-top">
-                      <SearchablePerson
-                        value={row.userName}
-                        onPick={({ name, id }) =>
-                          updateRow(row.key, { userName: name, userId: id })
-                        }
-                        directory={directory}
-                        onlyRole={null}
-                        placeholder="Search or create…"
-                        disabled={!!sendingKey}
-                      />
-                    </td>
-                    <td className="px-3 py-3 align-top">
-                      <select
-                        className={selectClass}
-                        value={row.role}
-                        disabled={!!sendingKey}
-                        onChange={(e) =>
-                          updateRow(row.key, { role: e.target.value })
-                        }
-                      >
-                        <option value="employee">Employee</option>
-                        <option value="manager">Manager</option>
-                      </select>
-                    </td>
-                    <td className="px-3 py-3 align-top">
-                      <div className="space-y-1.5">
-                        <SearchablePerson
-                          value={row.managerName}
-                          onPick={({ name, id }) =>
-                            updateRow(row.key, {
-                              managerName: name,
-                              managerId: id,
-                              managerEmail: id ? "" : row.managerEmail,
-                            })
-                          }
-                          directory={directory}
-                          onlyRole="manager"
-                          placeholder="Manager…"
-                          disabled={!!sendingKey || row.role !== "employee"}
-                        />
-                        {row.role === "employee" &&
-                          !row.managerId &&
-                          row.managerName.trim().length >= 2 && (
-                            <Input
-                              type="email"
-                              className="h-7 text-xs"
-                              placeholder="New manager email (if creating)"
-                              value={row.managerEmail}
-                              disabled={!!sendingKey}
-                              onChange={(e) =>
-                                updateRow(row.key, {
-                                  managerEmail: e.target.value,
-                                })
-                              }
-                              autoComplete="off"
-                            />
-                          )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 align-top">
-                      <Input
-                        type="email"
-                        className="h-8"
-                        placeholder="marc@gmail.com"
-                        value={row.email}
-                        disabled={!!sendingKey}
-                        onChange={(e) =>
-                          updateRow(row.key, { email: e.target.value })
-                        }
-                        autoComplete="off"
-                      />
-                    </td>
-                    <td className="px-3 py-3 align-top">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={!!sendingKey}
-                        onClick={() => handleSendPassword(row)}
-                      >
-                        {sendingKey === row.key ? "Sending…" : "Send password"}
-                      </Button>
-                    </td>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
+        <Card className="border border-white/10 bg-neutral-950/70 shadow-glow-inset ring-0 backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/20">
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+            <div>
+              <CardTitle className="text-xl font-bold text-white">Users</CardTitle>
+              <p className="mt-1 text-sm text-gray-400">
+                Add people, assign roles and manager, then send login credentials
+                by email (when SMTP is configured).
+              </p>
+            </div>
+            <Button type="button" size="sm" className="shadow-glow-sm" onClick={addRow}>
+              New
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {loadingUsers && (
+              <p className="mb-4 text-sm text-gray-500">
+                Loading directory…
+              </p>
+            )}
+            <div className="overflow-x-auto rounded-lg border border-white/10 bg-black/30">
+              <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 bg-white/[0.03]">
+                    <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      User (name)
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Role
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Manager
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Email
+                    </th>
+                    <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr
+                      key={row.key}
+                      className="border-b border-white/10 text-gray-200 last:border-b-0"
+                    >
+                      <td className="px-3 py-3 align-top">
+                        <SearchablePerson
+                          value={row.userName}
+                          onPick={({ name, id }) =>
+                            updateRow(row.key, { userName: name, userId: id })
+                          }
+                          directory={users}
+                          onlyRole={null}
+                          placeholder="Search or create…"
+                          disabled={!!sendingKey}
+                        />
+                      </td>
+                      <td className="px-3 py-3 align-top">
+                        <select
+                          className={selectClass}
+                          value={row.role}
+                          disabled={!!sendingKey}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            updateRow(row.key, {
+                              role: next,
+                              ...(next === "manager"
+                                ? {
+                                    managerName: "",
+                                    managerId: null,
+                                    managerEmail: "",
+                                  }
+                                : {}),
+                            });
+                          }}
+                        >
+                          <option value="employee">Employee</option>
+                          <option value="manager">Manager</option>
+                        </select>
+                      </td>
+                      <td className="px-3 py-3 align-top">
+                        <div className="space-y-1.5">
+                          <SearchablePerson
+                            value={row.managerName}
+                            onPick={({ name, id }) =>
+                              updateRow(row.key, {
+                                managerName: name,
+                                managerId: id,
+                                managerEmail: id ? "" : row.managerEmail,
+                              })
+                            }
+                            directory={users}
+                            onlyRole="manager"
+                            placeholder="Manager…"
+                            disabled={!!sendingKey || row.role !== "employee"}
+                          />
+                          {row.role === "employee" &&
+                            !row.managerId &&
+                            row.managerName.trim().length >= 2 && (
+                              <Input
+                                type="email"
+                                className="h-7 text-xs"
+                                placeholder="New manager email (if creating)"
+                                value={row.managerEmail}
+                                disabled={!!sendingKey}
+                                onChange={(e) =>
+                                  updateRow(row.key, {
+                                    managerEmail: e.target.value,
+                                  })
+                                }
+                                autoComplete="off"
+                              />
+                            )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 align-top">
+                        <Input
+                          type="email"
+                          className="h-8"
+                          placeholder="marc@gmail.com"
+                          value={row.email}
+                          disabled={!!sendingKey}
+                          onChange={(e) =>
+                            updateRow(row.key, { email: e.target.value })
+                          }
+                          autoComplete="off"
+                        />
+                      </td>
+                      <td className="px-3 py-3 align-top">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={!!sendingKey}
+                          onClick={() => handleSendPassword(row)}
+                        >
+                          {sendingKey === row.key ? "Sending…" : "Send password"}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-white/10 bg-neutral-950/70 shadow-glow-inset backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/25">
+          <CardHeader className="border-b border-white/10 pb-4">
+            <CardTitle className="text-xl font-bold text-white">
+              Company users
+            </CardTitle>
+            <p className="text-sm text-gray-400">
+              Everyone in your organization (same company as your admin account).
+            </p>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {loadingUsers ? (
+              <p className="text-sm text-gray-500">Loading users…</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-white/10 bg-black/30">
+                <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/[0.03]">
+                      <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                        Name
+                      </th>
+                      <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                        Email
+                      </th>
+                      <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                        Role
+                      </th>
+                      <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                        Manager
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="px-3 py-6 text-center text-gray-500"
+                        >
+                          No users in this company yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      users.map((u) => (
+                        <tr
+                          key={u.id}
+                          className="border-b border-white/10 text-gray-200 last:border-b-0"
+                        >
+                          <td className="px-3 py-3 font-medium">{u.name}</td>
+                          <td className="px-3 py-3 text-gray-400">{u.email}</td>
+                          <td className="px-3 py-3 capitalize text-gray-300">
+                            {u.role}
+                          </td>
+                          <td className="px-3 py-3 text-gray-400">
+                            {u.managerName ? (
+                              <>
+                                <span>{u.managerName}</span>
+                                {u.managerEmail ? (
+                                  <span className="mt-0.5 block text-xs text-gray-500">
+                                    {u.managerEmail}
+                                  </span>
+                                ) : null}
+                              </>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </DashboardLayout>
   );
 }

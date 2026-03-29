@@ -3,10 +3,12 @@ const ensureAuthenticated = require("../middlewares/Auth");
 const { ensureAdmin } = require("../middlewares/RoleMiddleware");
 const {
   createCompany,
+  listCompanies,
   listCompanyUsers,
   sendPasswordInvite,
 } = require("../controllers/AdminController");
 
+router.get("/companies", ensureAuthenticated, ensureAdmin, listCompanies);
 router.post("/companies", ensureAuthenticated, ensureAdmin, createCompany);
 router.get("/users", ensureAuthenticated, ensureAdmin, listCompanyUsers);
 router.post(

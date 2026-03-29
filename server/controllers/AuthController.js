@@ -3,6 +3,7 @@ const { User, Company } = require("../models"); // Ensure Company is exported fr
 const { sequelize } = require("../models/db"); // Needed for transactions
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { sendLoginCredentialsEmail } = require("../utils/mailer");
 const {
   convertToImageUrl,
   convertToImageUrlStatic,
@@ -85,7 +86,7 @@ const signUp = async (req, res) => {
       {
         name: companyName,
         country: country,
-        baseCurrency: baseCurrency,
+        currency_code: baseCurrency,
       },
       { transaction },
     );
@@ -104,6 +105,18 @@ const signUp = async (req, res) => {
     );
 
     await transaction.commit();
+
+    try {
+      await sendLoginCredentialsEmail({
+        to: newUser.email,
+        recipientName: newUser.name,
+        loginEmail: newUser.email,
+        password,
+        subject: "Welcome — your company admin account",
+      });
+    } catch (mailErr) {
+      console.error("signUp welcome email:", mailErr.message);
+    }
 
     const jwtToken = jwt.sign(
       {

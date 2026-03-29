@@ -6,6 +6,8 @@ function normalizeUser(raw) {
     name: raw.name ?? "",
     email: raw.email ?? "",
     role: String(raw.role ?? "").toLowerCase(),
+    managerName: raw.managerName ?? raw.manager?.name ?? "",
+    managerEmail: raw.managerEmail ?? raw.manager?.email ?? "",
   };
 }
 

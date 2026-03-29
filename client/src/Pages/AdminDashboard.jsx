@@ -6,7 +6,12 @@ import DashboardSidebar from "../components/layout/DashboardSidebar";
 import { StatCard } from "../components/dashboard/StatCard";
 import MiniBarChart from "../components/dashboard/MiniBarChart";
 import { adminSidebarItems } from "../lib/dashboard-nav";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import {
@@ -17,7 +22,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 
 export default function AdminDashboard() {
   const { user } = useContext(AuthContext);
@@ -88,15 +98,22 @@ export default function AdminDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
-              <Button variant="outline" className="justify-start border-white/10" asChild>
+              <Button
+                variant="outline"
+                className="justify-start border-white/10"
+                asChild
+              >
                 <Link to="/admin/users">User management →</Link>
               </Button>
-              <Button variant="outline" className="justify-start border-white/10" asChild>
+              {/* <Button variant="outline" className="justify-start border-white/10" asChild>
                 <Link to="/admin/company/new">Create company →</Link>
-              </Button>
+              </Button> */}
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="border-cyan-500/30 text-cyan-300">
+                  <Button
+                    variant="outline"
+                    className="border-cyan-500/30 text-cyan-300"
+                  >
                     Keyboard shortcuts
                   </Button>
                 </DialogTrigger>
@@ -109,20 +126,32 @@ export default function AdminDashboard() {
                   </DialogHeader>
                   <Tabs defaultValue="nav" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 border border-white/10 bg-black/50 p-1">
-                      <TabsTrigger value="nav" className="data-[state=active]:text-cyan-400">
+                      <TabsTrigger
+                        value="nav"
+                        className="data-[state=active]:text-cyan-400"
+                      >
                         Nav
                       </TabsTrigger>
-                      <TabsTrigger value="tips" className="data-[state=active]:text-cyan-400">
+                      <TabsTrigger
+                        value="tips"
+                        className="data-[state=active]:text-cyan-400"
+                      >
                         Tips
                       </TabsTrigger>
                     </TabsList>
-                    <TabsContent value="nav" className="mt-3 text-sm text-gray-400">
-                      Use the sidebar for fast jumps between overview, users, and
-                      company setup.
+                    <TabsContent
+                      value="nav"
+                      className="mt-3 text-sm text-gray-400"
+                    >
+                      Use the sidebar for fast jumps between overview, users,
+                      and company setup.
                     </TabsContent>
-                    <TabsContent value="tips" className="mt-3 text-sm text-gray-400">
-                      Keep currency consistent when creating a company; users inherit
-                      access from role assignments.
+                    <TabsContent
+                      value="tips"
+                      className="mt-3 text-sm text-gray-400"
+                    >
+                      Keep currency consistent when creating a company; users
+                      inherit access from role assignments.
                     </TabsContent>
                   </Tabs>
                 </DialogContent>
