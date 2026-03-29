@@ -22,6 +22,7 @@ const emptyRow = () => ({
   role: "employee",
   managerName: "",
   managerId: null,
+  managerEmail: "",
   email: "",
 });
 
@@ -173,17 +174,35 @@ export default function Adduser() {
     }
     setSendingKey(row.key);
     try {
-      await sendUserPasswordInvite({
+      const result = await sendUserPasswordInvite({
         userName: row.userName.trim(),
         userId: row.userId,
         email: row.email.trim().toLowerCase(),
         role: row.role,
         managerName: row.managerName.trim() || undefined,
         managerId: row.managerId,
+        managerEmail: row.managerEmail.trim() || undefined,
         createUserIfNew: !row.userId,
-        createManagerIfNew: Boolean(row.managerName.trim() && !row.managerId),
+        createManagerIfNew: Boolean(
+          row.role === "employee" &&
+            row.managerName.trim() &&
+            !row.managerId,
+        ),
       });
-      toast.success("Password email sent. The user can sign in and change it.");
+      const inner = result?.data ?? result;
+      const parts = [];
+      if (inner?.temporaryPassword) {
+        parts.push(`User temp password: ${inner.temporaryPassword}`);
+      }
+      if (inner?.managerTemporaryPassword) {
+        parts.push(`Manager temp password: ${inner.managerTemporaryPassword}`);
+      }
+      toast.success(
+        parts.length > 0
+          ? parts.join(" · ")
+          : result?.message ||
+              "Done. Share credentials securely (email is not configured on the server).",
+      );
     } catch (e) {
       toast.error(
         e?.response?.data?.message ||
@@ -269,19 +288,39 @@ export default function Adduser() {
                       </select>
                     </td>
                     <td className="px-3 py-3 align-top">
-                      <SearchablePerson
-                        value={row.managerName}
-                        onPick={({ name, id }) =>
-                          updateRow(row.key, {
-                            managerName: name,
-                            managerId: id,
-                          })
-                        }
-                        directory={directory}
-                        onlyRole="manager"
-                        placeholder="Manager…"
-                        disabled={!!sendingKey}
-                      />
+                      <div className="space-y-1.5">
+                        <SearchablePerson
+                          value={row.managerName}
+                          onPick={({ name, id }) =>
+                            updateRow(row.key, {
+                              managerName: name,
+                              managerId: id,
+                              managerEmail: id ? "" : row.managerEmail,
+                            })
+                          }
+                          directory={directory}
+                          onlyRole="manager"
+                          placeholder="Manager…"
+                          disabled={!!sendingKey || row.role !== "employee"}
+                        />
+                        {row.role === "employee" &&
+                          !row.managerId &&
+                          row.managerName.trim().length >= 2 && (
+                            <Input
+                              type="email"
+                              className="h-7 text-xs"
+                              placeholder="New manager email (if creating)"
+                              value={row.managerEmail}
+                              disabled={!!sendingKey}
+                              onChange={(e) =>
+                                updateRow(row.key, {
+                                  managerEmail: e.target.value,
+                                })
+                              }
+                              autoComplete="off"
+                            />
+                          )}
+                      </div>
                     </td>
                     <td className="px-3 py-3 align-top">
                       <Input

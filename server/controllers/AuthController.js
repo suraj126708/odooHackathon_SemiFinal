@@ -131,7 +131,7 @@ const signUp = async (req, res) => {
       company: newCompany,
     });
   } catch (err) {
-    await transaction.rol-();
+    await transaction.rollback();
     console.error("SignUp Error:", err);
     res.status(500).json({
       message: "Internal server error during registration",

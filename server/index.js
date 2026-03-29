@@ -8,6 +8,7 @@ const { connectDB } = require("./models/db");
 const seedData = require("./seed-data");
 
 const AuthRouter = require("./routes/AuthRouter");
+const AdminRouter = require("./routes/AdminRouter");
 const UserRouter = require("./routes/UserRouter");
 const ExpenseRouter = require("./routes/ExpenseRouter");
 
@@ -69,6 +70,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
 app.use("/api/auth", AuthRouter);
+app.use("/api/admin", AdminRouter);
 app.use("/api/users", UserRouter);
 app.use("/api/expenses", ExpenseRouter);
 
