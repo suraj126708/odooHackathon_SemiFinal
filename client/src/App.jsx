@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { RequireAuth, RequireRole } from "./components/RequireRole";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
@@ -12,8 +13,9 @@ import Register from "./Pages/Register";
 import AdminDashboard from "./Pages/AdminDashboard";
 import Adduser from "./Pages/Admin/Adduser";
 import CreateCompany from "./Pages/Admin/CreateCompany";
+import ApprovalRules from "./Pages/Admin/ApprovalRules";
 import ManagerDashboard from "./Pages/ManagerDashboard";
-import UserDashboard from "./Pages/UserDashboard";
+import SubmitExpense from "./Pages/User/SubmitExpense";
 import ApprovalDashboard from "./Pages/MiddlePerson/ApprovalDashboard";
 import ProfilePage from "./Pages/ProfilePage";
 import { AuthProvider } from "./context/AuthContext";
@@ -35,13 +37,74 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/users" element={<Adduser />} />
-              <Route path="/admin/company/new" element={<CreateCompany />} />
-              <Route path="/manager/dashboard" element={<ManagerDashboard />} />
-              <Route path="/manager/approvals" element={<ApprovalDashboard />} />
-              <Route path="/user/dashboard" element={<UserDashboard />} />
-              <Route path="/profile" element={<ProfilePage />} />
+              <Route
+                path="/admin/dashboard"
+                element={
+                  <RequireRole roles={["admin"]}>
+                    <AdminDashboard />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <RequireRole roles={["admin"]}>
+                    <Adduser />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/company/new"
+                element={
+                  <RequireRole roles={["admin"]}>
+                    <CreateCompany />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/approval-rules"
+                element={
+                  <RequireRole roles={["admin"]}>
+                    <ApprovalRules />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/manager/dashboard"
+                element={
+                  <RequireRole roles={["manager"]}>
+                    <ManagerDashboard />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/manager/approvals"
+                element={
+                  <RequireRole roles={["manager"]}>
+                    <ApprovalDashboard />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/user/dashboard"
+                element={<Navigate to="/user/expenses" replace />}
+              />
+              <Route
+                path="/user/expenses"
+                element={
+                  <RequireRole roles={["employee"]}>
+                    <SubmitExpense />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <RequireAuth>
+                    <ProfilePage />
+                  </RequireAuth>
+                }
+              />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

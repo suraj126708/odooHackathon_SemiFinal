@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import DashboardLayout from "../../components/layout/DashboardLayout";
+import DashboardSidebar from "../../components/layout/DashboardSidebar";
+import { managerSidebarItems } from "../../lib/dashboard-nav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,10 +69,13 @@ export default function ApprovalDashboard() {
   }, [filtered]);
 
   return (
-    <div className="page-shell text-foreground">
-      <Card className="surface-glow mx-auto max-w-7xl border-cyan-500/15">
-        <CardHeader className="border-b border-border/60 pb-4">
-          <CardTitle className="text-xl font-semibold tracking-tight">
+    <DashboardLayout
+      sidebar={<DashboardSidebar items={managerSidebarItems} />}
+    >
+      <div className="text-gray-100">
+      <Card className="mx-auto max-w-7xl border-white/10 bg-neutral-950/70 shadow-glow-inset backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/20">
+        <CardHeader className="border-b border-white/10 pb-4">
+          <CardTitle className="text-xl font-bold tracking-tight text-white">
             Approvals to review
           </CardTitle>
         </CardHeader>
@@ -79,48 +85,48 @@ export default function ApprovalDashboard() {
             placeholder="Search by owner, category, status, amount…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-10 max-w-2xl bg-background/80"
+            className="h-10 max-w-2xl"
           />
 
           <div
-            className="overflow-x-auto rounded-lg border border-border/60 bg-card/40"
+            className="overflow-x-auto rounded-lg border border-white/10 bg-black/30"
             aria-busy={loading}
           >
             <table className="w-full min-w-[900px] border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/50">
+                <tr className="border-b border-white/10 bg-white/[0.03]">
                   <th
-                    className="px-4 py-3 font-medium text-muted-foreground"
+                    className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500"
                     scope="col"
                   >
                     &nbsp;
                   </th>
                   <th
-                    className="px-4 py-3 font-medium text-muted-foreground"
+                    className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500"
                     scope="col"
                   >
                     Request Owner
                   </th>
                   <th
-                    className="px-4 py-3 font-medium text-muted-foreground"
+                    className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500"
                     scope="col"
                   >
                     Category
                   </th>
                   <th
-                    className="px-4 py-3 font-medium text-muted-foreground"
+                    className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500"
                     scope="col"
                   >
                     Request Status
                   </th>
                   <th
-                    className="px-4 py-3 font-medium text-muted-foreground"
+                    className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500"
                     scope="col"
                   >
                     Total amount (in company&apos;s currency)
                   </th>
                   <th
-                    className="px-4 py-3 text-center font-medium text-muted-foreground"
+                    className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500"
                     scope="col"
                     colSpan={2}
                   >
@@ -134,7 +140,7 @@ export default function ApprovalDashboard() {
                     return (
                       <tr
                         key={`pad-${idx}`}
-                        className="border-b border-border bg-muted/20"
+                        className="border-b border-white/10 bg-white/[0.02]"
                       >
                         <td className="px-4 py-8" colSpan={7} />
                       </tr>
@@ -143,7 +149,7 @@ export default function ApprovalDashboard() {
                   return (
                     <tr
                       key={row.id}
-                      className="border-b border-border transition-colors last:border-b-0 hover:bg-muted/30"
+                      className="border-b border-white/10 transition-colors last:border-b-0 hover:bg-white/[0.04]"
                     >
                       <td className="px-4 py-4 align-top">
                         <div className="inline-flex flex-col gap-1">
@@ -155,7 +161,7 @@ export default function ApprovalDashboard() {
                           >
                             {row.reviewerLabel}
                           </Badge>
-                          <span className="text-[11px] text-muted-foreground">
+                          <span className="text-[11px] text-gray-500">
                             {row.reviewerSubtext}
                           </span>
                         </div>
@@ -167,7 +173,7 @@ export default function ApprovalDashboard() {
                         <span className="text-destructive">
                           {row.amountOriginal} {row.conversionNote}
                         </span>
-                        <span className="text-foreground">
+                        <span className="text-gray-200">
                           {" "}
                           = {row.amountInCompanyCurrency}
                         </span>
@@ -208,6 +214,7 @@ export default function ApprovalDashboard() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

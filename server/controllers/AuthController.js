@@ -143,8 +143,21 @@ const signUp = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log("Request Body:", req.body);
+    const emailNorm = typeof email === "string" ? email.trim().toLowerCase() : "";
 
-    const user = await User.unscoped().findOne({ where: { email } });
+    if (!emailNorm || password == null || password === "") {
+      return res
+        .status(401)
+        .json({ message: "Invalid email or password", success: false });
+    }
+
+    const user = await User.unscoped().findOne({
+      where: sequelize.where(
+        sequelize.fn("LOWER", sequelize.col("email")),
+        emailNorm,
+      ),
+    });
     if (!user) {
       return res
         .status(401)

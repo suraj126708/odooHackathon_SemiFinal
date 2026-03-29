@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { AuthContext } from "../context/AuthContext";
 import { login as loginApi } from "../services/authService";
+import { getHomePathForRole } from "../lib/dashboard-nav";
 import { toast } from "react-toastify";
 import {
   Card,
@@ -32,12 +33,6 @@ export default function LoginForm() {
     setErrors((prev) => ({ ...prev, [e.target.name]: "" }));
   };
 
-  const getRedirectPath = (role) => {
-    if (role === "admin") return "/admin/dashboard";
-    if (role === "manager") return "/manager/dashboard";
-    return "/user/dashboard";
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -55,7 +50,7 @@ export default function LoginForm() {
       login(response.token, response.user);
       localStorage.setItem("rms_role", response.user.role);
       toast.success("Login successful!");
-      navigate(getRedirectPath(response.user.role));
+      navigate(getHomePathForRole(response.user.role));
     } catch (ex) {
       toast.error(ex.message || "Login failed. Please try again.");
     } finally {
@@ -65,12 +60,12 @@ export default function LoginForm() {
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-12">
-      <Card className="surface-glow w-full max-w-md border-cyan-500/20">
+      <Card className="w-full max-w-md border-white/10 bg-neutral-950/80 shadow-glow-cyan-soft backdrop-blur-xl transition-all duration-200 hover:border-cyan-500/25 hover:shadow-glow-cyan">
         <CardContent className="space-y-4 p-6">
-          <CardTitle className="text-xl font-semibold tracking-tight">
+          <CardTitle className="text-xl font-bold tracking-tight text-white">
             Sign in
           </CardTitle>
-          <CardDescription className="text-sm text-muted-foreground">
+          <CardDescription className="text-sm text-gray-400">
             Access the reimbursement management system.
           </CardDescription>
 
@@ -78,7 +73,7 @@ export default function LoginForm() {
             <div>
               <label
                 htmlFor="email"
-                className="mb-1.5 block text-sm font-medium text-foreground"
+                className="mb-1.5 block text-sm font-medium text-gray-300"
               >
                 Email
               </label>
@@ -89,7 +84,6 @@ export default function LoginForm() {
                 value={form.email}
                 onChange={onChange}
                 placeholder="you@example.com"
-                className="bg-background/80"
                 aria-invalid={errors.email ? "true" : "false"}
               />
               {errors.email && (
@@ -100,7 +94,7 @@ export default function LoginForm() {
             <div>
               <label
                 htmlFor="password"
-                className="mb-1.5 block text-sm font-medium text-foreground"
+                className="mb-1.5 block text-sm font-medium text-gray-300"
               >
                 Password
               </label>
@@ -112,13 +106,13 @@ export default function LoginForm() {
                   value={form.password}
                   onChange={onChange}
                   placeholder="••••••••"
-                  className="bg-background/80 pr-16"
+                  className="pr-16"
                   aria-invalid={errors.password ? "true" : "false"}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-2 top-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  className="absolute right-2 top-1.5 text-xs text-gray-500 hover:text-gray-300"
                 >
                   {showPassword ? "Hide" : "Show"}
                 </button>
@@ -131,18 +125,15 @@ export default function LoginForm() {
             </div>
 
             <div className="flex flex-wrap justify-between gap-2 text-sm">
-              <Link
-                to="#"
-                className="text-primary hover:underline"
-              >
+              <Link to="#" className="text-cyan-400 hover:underline">
                 Forgot password?
               </Link>
-              <Link to="/register" className="text-primary hover:underline">
+              <Link to="/register" className="text-cyan-400 hover:underline">
                 Create account
               </Link>
             </div>
 
-            <Button type="submit" className="w-full shadow-glow-sm" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing in…" : "Sign in"}
             </Button>
           </Form>

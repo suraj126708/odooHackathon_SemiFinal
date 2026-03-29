@@ -1,4 +1,32 @@
-// Mock authentication service for local frontend-only behavior
+import axiosInstance from "../Authorisation/axiosConfig";
+
+function getErrorMessage(error) {
+  if (error?.response?.data?.message) return error.response.data.message;
+  if (error?.message && typeof error.message === "string") return error.message;
+  return "Something went wrong. Please try again.";
+}
+
+/**
+ * Login against the real API so seeded users and DB-backed accounts work.
+ */
+export const login = async ({ email, password }) => {
+  try {
+    const { data } = await axiosInstance.post("/api/auth/login", {
+      email,
+      password,
+    });
+    if (!data?.success || !data.token || !data.user) {
+      const err = new Error(data?.message || "Login failed");
+      throw err;
+    }
+    return { token: data.token, user: data.user };
+  } catch (error) {
+    const err = new Error(getErrorMessage(error));
+    throw err;
+  }
+};
+
+/* Registration still uses the local mock until signup UI and /api/auth/signup payloads are aligned. */
 const runFakeNetwork = (response, delay = 700) =>
   new Promise((resolve) => setTimeout(() => resolve(response), delay));
 
@@ -35,25 +63,6 @@ let users = [
     country: "USA",
   },
 ];
-
-const buildToken = () => `${Math.random().toString(36).substr(2)}.${Date.now()}`;
-
-export const login = async ({ email, password }) => {
-  const normalizedEmail = email.trim().toLowerCase();
-
-  const user = users.find((u) => u.email === normalizedEmail && u.password === password);
-
-  if (!user) {
-    return runFakeNetwork({ success: false, message: "Invalid email or password" }, 600).then((res) => {
-      const err = new Error(res.message);
-      err.status = 401;
-      throw err;
-    });
-  }
-
-  const token = buildToken();
-  return runFakeNetwork({ success: true, token, user: { ...user, password: undefined } }, 600);
-};
 
 export const register = async ({ name, email, password, country, role }) => {
   const normalizedEmail = email.trim().toLowerCase();

@@ -9,6 +9,9 @@ import {
   fetchDirectoryUsers,
   sendUserPasswordInvite,
 } from "@/services/admin/usersApi";
+import DashboardLayout from "../../components/layout/DashboardLayout";
+import DashboardSidebar from "../../components/layout/DashboardSidebar";
+import { adminSidebarItems } from "../../lib/dashboard-nav";
 
 const newKey = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -23,8 +26,8 @@ const emptyRow = () => ({
 });
 
 const selectClass = cn(
-  "flex h-8 w-full min-w-0 rounded-lg border border-input bg-background px-2.5 py-1 text-sm",
-  "outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+  "flex h-8 w-full min-w-0 rounded-lg border border-white/10 bg-black/40 px-2.5 py-1 text-sm text-white",
+  "outline-none transition-all duration-200 focus-visible:border-cyan-500/50 focus-visible:ring-3 focus-visible:ring-cyan-400/35"
 );
 
 function SearchablePerson({
@@ -193,12 +196,12 @@ export default function Adduser() {
   };
 
   return (
-    <div className="page-shell">
-      <Card className="surface-glow mx-auto max-w-6xl border-cyan-500/15">
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-4">
+    <DashboardLayout sidebar={<DashboardSidebar items={adminSidebarItems} />}>
+      <Card className="mx-auto max-w-6xl border border-white/10 bg-neutral-950/70 shadow-glow-inset ring-0 backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/20">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
           <div>
-            <CardTitle className="text-xl font-semibold">Users</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <CardTitle className="text-xl font-bold text-white">Users</CardTitle>
+            <p className="mt-1 text-sm text-gray-400">
               Add people, assign roles and manager, then send a temporary
               password by email.
             </p>
@@ -209,27 +212,27 @@ export default function Adduser() {
         </CardHeader>
         <CardContent className="pt-6">
           {loadingDir && (
-            <p className="mb-4 text-sm text-muted-foreground">
+            <p className="mb-4 text-sm text-gray-500">
               Loading directory…
             </p>
           )}
-          <div className="overflow-x-auto rounded-lg border border-border/60 bg-card/40">
+          <div className="overflow-x-auto rounded-lg border border-white/10 bg-black/30">
             <table className="w-full min-w-[860px] border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="px-3 py-3 font-medium text-muted-foreground">
+                <tr className="border-b border-white/10 bg-white/[0.03]">
+                  <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
                     User (name)
                   </th>
-                  <th className="px-3 py-3 font-medium text-muted-foreground">
+                  <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
                     Role
                   </th>
-                  <th className="px-3 py-3 font-medium text-muted-foreground">
+                  <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
                     Manager
                   </th>
-                  <th className="px-3 py-3 font-medium text-muted-foreground">
+                  <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
                     Email
                   </th>
-                  <th className="px-3 py-3 font-medium text-muted-foreground">
+                  <th className="px-3 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
                     Actions
                   </th>
                 </tr>
@@ -238,7 +241,7 @@ export default function Adduser() {
                 {rows.map((row) => (
                   <tr
                     key={row.key}
-                    className="border-b border-border last:border-b-0"
+                    className="border-b border-white/10 text-gray-200 last:border-b-0"
                   >
                     <td className="px-3 py-3 align-top">
                       <SearchablePerson
@@ -283,7 +286,7 @@ export default function Adduser() {
                     <td className="px-3 py-3 align-top">
                       <Input
                         type="email"
-                        className="h-8 bg-background"
+                        className="h-8"
                         placeholder="marc@gmail.com"
                         value={row.email}
                         disabled={!!sendingKey}
@@ -311,6 +314,6 @@ export default function Adduser() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </DashboardLayout>
   );
 }

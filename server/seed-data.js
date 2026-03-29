@@ -1,46 +1,56 @@
 require("dotenv").config();
 const bcrypt = require("bcrypt");
 const { sequelize, connectDB } = require("./models/db");
-require("./models/User");
-const { User } = require("./models");
+const { User, Company } = require("./models");
 
-const upsertUser = async ({ name, email, username, password, role }) => {
-  const existing = await User.findOne({ where: { email } });
+const ensureSeedCompany = async () => {
+  const [company] = await Company.findOrCreate({
+    where: { name: "Seed Organization" },
+    defaults: {
+      country: "United States",
+      currency_code: "USD",
+    },
+  });
+  return company;
+};
 
-  if (existing) {
-    console.log(`⚡ ${email} already exists, skipping...`);
-    return existing;
+const upsertAdmin = async ({ name, email, password, companyId }) => {
+  const password_hash = await bcrypt.hash(password, 12);
+  const existing = await User.unscoped().findOne({ where: { email } });
+
+  if (!existing) {
+    const user = await User.create({
+      name,
+      email,
+      password_hash,
+      role: "admin",
+      company_id: companyId,
+      manager_id: null,
+    });
+    console.log(`👤 admin user created: ${email}`);
+    return user;
   }
 
-  const hashedPassword = await bcrypt.hash(password, 12);
-
-  const user = await User.create({
+  await existing.update({
     name,
-    email,
-    username,
-    password: hashedPassword,
-    role,
+    password_hash,
+    role: "admin",
+    company_id: companyId,
+    manager_id: null,
   });
-
-  console.log(`👤 ${role} user created: ${email}`);
-  return user;
+  console.log(
+    `👤 admin user updated (password_hash synced — use seed password to log in): ${email}`,
+  );
+  return existing;
 };
 
 const seedData = async () => {
-  await upsertUser({
-    name: "Demo User",
-    email: "demo@gmail.com",
-    username: "demouser",
-    password: "demo123",
-    role: "user",
-  });
-
-  await upsertUser({
+  const company = await ensureSeedCompany();
+  await upsertAdmin({
     name: "Admin User",
     email: "admin@gmail.com",
-    username: "adminuser",
     password: "admin123",
-    role: "admin",
+    companyId: company.id,
   });
 
   console.log("🌱 Seeding completed");

@@ -7,10 +7,13 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { createCompany } from "@/services/admin/companyApi";
 import { fetchCountries } from "@/services/admin/countriesApi";
+import DashboardLayout from "../../components/layout/DashboardLayout";
+import DashboardSidebar from "../../components/layout/DashboardSidebar";
+import { adminSidebarItems } from "../../lib/dashboard-nav";
 
 const selectClass = cn(
-  "flex h-8 w-full min-w-0 rounded-lg border border-input bg-background px-2.5 py-1 text-sm",
-  "outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+  "flex h-8 w-full min-w-0 rounded-lg border border-white/10 bg-black/40 px-2.5 py-1 text-sm text-white",
+  "outline-none transition-all duration-200 focus-visible:border-cyan-500/50 focus-visible:ring-3 focus-visible:ring-cyan-400/35",
 );
 
 export default function CreateCompany() {
@@ -84,13 +87,13 @@ export default function CreateCompany() {
   };
 
   return (
-    <div className="page-shell">
-      <Card className="surface-glow mx-auto max-w-lg border-cyan-500/15">
-        <CardHeader className="border-b border-border/60 pb-4">
-          <CardTitle className="text-xl font-semibold">
+    <DashboardLayout sidebar={<DashboardSidebar items={adminSidebarItems} />}>
+      <Card className="mx-auto max-w-lg border-white/10 bg-neutral-950/70 shadow-glow-inset backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/25">
+        <CardHeader className="border-b border-white/10 pb-4">
+          <CardTitle className="text-xl font-bold text-white">
             Create company
           </CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-gray-400">
             Set the legal name, country, and reimbursement currency for the
             organization.
           </p>
@@ -98,18 +101,21 @@ export default function CreateCompany() {
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="company-name">Company name</Label>
+              <Label htmlFor="company-name" className="text-gray-300">
+                Company name
+              </Label>
               <Input
                 id="company-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Acme Inc."
                 disabled={submitting}
-                className="bg-background/80"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="company-country">Country</Label>
+              <Label htmlFor="company-country" className="text-gray-300">
+                Country
+              </Label>
               <select
                 id="company-country"
                 className={selectClass}
@@ -128,7 +134,9 @@ export default function CreateCompany() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="company-currency">Currency</Label>
+              <Label htmlFor="company-currency" className="text-gray-300">
+                Currency
+              </Label>
               <Input
                 id="company-currency"
                 value={currency}
@@ -136,9 +144,9 @@ export default function CreateCompany() {
                 placeholder="INR"
                 maxLength={8}
                 disabled={submitting}
-                className="bg-background/80 font-mono"
+                className="font-mono"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-gray-500">
                 ISO code (e.g. USD, INR). Prefilled from country when possible.
               </p>
             </div>
@@ -152,6 +160,6 @@ export default function CreateCompany() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </DashboardLayout>
   );
 }

@@ -1,87 +1,88 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { getHomePathForRole } from "../lib/dashboard-nav";
+import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 
-const features = [
+const tiles = [
   {
     title: "Submit & track",
-    text: "Employees submit expenses with receipts; status stays visible end to end.",
+    text: "Employees submit expenses with receipts; status visible end to end.",
+    span: "md:col-span-4",
   },
   {
     title: "Approvals",
-    text: "Managers review queues and approve or reject with clear audit context.",
+    text: "Managers review queues and approve or reject with full context.",
+    span: "md:col-span-4",
   },
   {
     title: "Company rules",
-    text: "Admins configure companies, users, and approval rules per category.",
+    text: "Admins configure companies, users, and rules per category.",
+    span: "md:col-span-4",
+  },
+  {
+    title: "Currency aware",
+    text: "Amounts reconcile to your company base currency.",
+    span: "md:col-span-6",
+  },
+  {
+    title: "Secure access",
+    text: "Role-based dashboards for admin, manager, and employee.",
+    span: "md:col-span-6",
   },
 ];
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
 
-  const dash =
-    user?.role === "admin"
-      ? "/admin/dashboard"
-      : user?.role === "manager"
-        ? "/manager/dashboard"
-        : "/user/dashboard";
+  const dash = getHomePathForRole(user?.role);
 
   return (
-    <div className="relative overflow-hidden">
-      <div
-        className="pointer-events-none absolute -left-32 top-0 h-72 w-72 rounded-full bg-cyan-500/20 blur-[100px]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -right-24 top-40 h-80 w-80 rounded-full bg-violet-500/15 blur-[110px]"
-        aria-hidden
-      />
-
-      <section className="page-shell relative">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-cyan-400/90">
-            Reimbursement management
-          </p>
-          <h1 className="text-balance text-4xl font-semibold tracking-tight md:text-5xl">
-            <span className="text-gradient-accent">Minimal ops.</span>{" "}
-            <span className="text-foreground">Clear money.</span>
+    <div className="relative">
+      <section className="page-shell">
+        <div className="mx-auto max-w-4xl text-center">
+          <Badge
+            variant="outline"
+            className="mb-4 border-cyan-500/30 bg-cyan-500/5 text-xs font-normal uppercase tracking-[0.2em] text-cyan-400 shadow-glow-cyan-soft"
+          >
+            Reimbursement OS
+          </Badge>
+          <h1 className="text-balance text-4xl font-bold tracking-tight text-white md:text-5xl">
+            <span className="text-gradient-accent">Developer-grade</span>{" "}
+            expense control
           </h1>
-          <p className="mt-4 text-pretty text-muted-foreground md:text-lg">
-            One place for employees to claim expenses, managers to approve, and
-            admins to govern users, companies, and rules—aligned with your
-            company currency.
+          <p className="mt-4 text-pretty text-sm text-gray-400 md:text-base">
+            Dark, fast, minimal. One surface for claims, approvals, and org
+            settings—without the clutter.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             {!isAuthenticated ? (
               <>
-                <Button className="shadow-glow" size="lg" asChild>
+                <Button size="lg" className="px-6" asChild>
                   <Link to="/register">Get started</Link>
                 </Button>
-                <Button variant="outline" size="lg" className="border-border/60" asChild>
+                <Button variant="outline" size="lg" className="border-white/10 px-6" asChild>
                   <Link to="/login">Sign in</Link>
                 </Button>
               </>
             ) : (
-              <Button className="shadow-glow" size="lg" asChild>
-                <Link to={dash}>Go to dashboard</Link>
+              <Button size="lg" className="px-6" asChild>
+                <Link to={dash}>Open dashboard</Link>
               </Button>
             )}
           </div>
         </div>
 
-        <div className="mt-16 grid gap-4 md:grid-cols-3">
-          {features.map((f) => (
+        <div className="mt-14 grid grid-cols-12 gap-4">
+          {tiles.map((t) => (
             <Card
-              key={f.title}
-              className="surface-glow border-cyan-500/10 bg-card/40"
+              key={t.title}
+              className={`group col-span-12 border-white/10 bg-neutral-950/60 shadow-none backdrop-blur-sm transition-all duration-200 hover:scale-[1.02] hover:border-cyan-500/25 hover:shadow-glow-cyan-soft ${t.span}`}
             >
               <CardContent className="space-y-2 p-5">
-                <h2 className="font-medium text-foreground">{f.title}</h2>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  {f.text}
-                </p>
+                <h2 className="text-sm font-semibold text-white">{t.title}</h2>
+                <p className="text-sm leading-relaxed text-gray-400">{t.text}</p>
               </CardContent>
             </Card>
           ))}
