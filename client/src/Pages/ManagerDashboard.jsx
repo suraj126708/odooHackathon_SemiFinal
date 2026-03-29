@@ -8,14 +8,29 @@ import MiniBarChart from "../components/dashboard/MiniBarChart";
 import { managerSidebarItems } from "../lib/dashboard-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
+import { fetchPendingApprovals } from "../services/MiddlePerson/ApprovalAPI";
 
 export default function ManagerDashboard() {
   const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 650);
-    return () => clearTimeout(t);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const items = await fetchPendingApprovals();
+        if (!cancelled) setPendingCount(Array.isArray(items) ? items.length : 0);
+      } catch {
+        if (!cancelled) setPendingCount(0);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -35,8 +50,8 @@ export default function ManagerDashboard() {
           <div className="col-span-12 sm:col-span-6 lg:col-span-4">
             <StatCard
               title="Awaiting review"
-              value="12"
-              hint="Oldest: 2d"
+              value={String(pendingCount)}
+              hint={pendingCount ? "Open approvals queue" : "Nothing pending"}
               loading={loading}
             />
           </div>

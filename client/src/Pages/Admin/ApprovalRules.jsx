@@ -25,6 +25,9 @@ import {
   RULE_TYPE_OPTIONS,
   uid,
 } from "@/services/admin/approvalRulesService";
+import { EXPENSE_CATEGORIES } from "@/services/expenseService";
+
+const RULE_SCOPE_CATEGORIES = ["All", ...EXPENSE_CATEGORIES];
 import { fetchDirectoryUsers } from "@/services/admin/usersApi";
 
 const selectClass = cn(
@@ -106,6 +109,7 @@ export default function ApprovalRules() {
     setForm({
       name: row.name || "",
       description: row.description || "",
+      category: row.category || "All",
       subjectUserId: row.subjectUserId || "",
       managerId: row.managerId || "",
       ruleType: row.ruleType || "sequential",
@@ -176,14 +180,6 @@ export default function ApprovalRules() {
       toast.error("Add a description.");
       return false;
     }
-    if (!form.subjectUserId) {
-      toast.error("Select the employee this rule applies to.");
-      return false;
-    }
-    if (!form.managerId) {
-      toast.error("Select a manager.");
-      return false;
-    }
     if (form.ruleType === "percentage" || form.ruleType === "hybrid") {
       const p = Number(form.minApprovalPct);
       if (!Number.isFinite(p) || p < 1 || p > 100) {
@@ -199,7 +195,9 @@ export default function ApprovalRules() {
     }
     const filledApprovers = form.approvers.filter((a) => a.userId);
     if (
-      (form.ruleType === "sequential" || form.ruleType === "percentage") &&
+      (form.ruleType === "sequential" ||
+        form.ruleType === "percentage" ||
+        form.ruleType === "all") &&
       filledApprovers.length === 0 &&
       !form.isManagerApprover
     ) {
@@ -271,9 +269,9 @@ export default function ApprovalRules() {
               Approval rules
             </h1>
             <p className="mt-1 text-sm text-gray-400">
-              Configure how reimbursement claims are routed: sequential stages,
-              percentage thresholds, a single required approver, or hybrid OR
-              logic.
+              Configure routing: sequential chain, percentage threshold,
+              designated approver, hybrid OR logic, or all notified with any-one
+              approval.
             </p>
           </div>
           {!showForm && (
@@ -298,6 +296,7 @@ export default function ApprovalRules() {
                   <thead>
                     <tr className="border-b border-white/10 text-gray-500">
                       <th className="px-4 py-2 font-medium">Name</th>
+                      <th className="px-4 py-2 font-medium">Category</th>
                       <th className="px-4 py-2 font-medium">Employee</th>
                       <th className="px-4 py-2 font-medium">Manager</th>
                       <th className="px-4 py-2 font-medium">Rule type</th>
@@ -310,7 +309,7 @@ export default function ApprovalRules() {
                     {loading ? (
                       <tr>
                         <td
-                          colSpan={5}
+                          colSpan={6}
                           className="px-4 py-8 text-center text-gray-500"
                         >
                           Loading…
@@ -319,7 +318,7 @@ export default function ApprovalRules() {
                     ) : rules.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={5}
+                          colSpan={6}
                           className="px-4 py-8 text-center text-gray-500"
                         >
                           No rules yet. Create one to define approval behaviour.
@@ -333,6 +332,9 @@ export default function ApprovalRules() {
                         >
                           <td className="px-4 py-2.5 font-medium text-gray-200">
                             {r.name}
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-400">
+                            {r.category || "All"}
                           </td>
                           <td className="px-4 py-2.5 text-gray-400">
                             {r.subjectUserName || "—"}
@@ -429,6 +431,26 @@ export default function ApprovalRules() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label className="text-gray-300">Expense category</Label>
+                    <select
+                      className={selectClass}
+                      value={form.category || "All"}
+                      onChange={(e) => setField({ category: e.target.value })}
+                    >
+                      {RULE_SCOPE_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c === "All"
+                            ? "All categories"
+                            : c}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-gray-500">
+                      Matches the category employees select when submitting.
+                      “All” applies unless a more specific rule scores higher.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
                     <Label className="text-gray-300">User (employee)</Label>
                     <select
                       className={selectClass}
@@ -444,7 +466,8 @@ export default function ApprovalRules() {
                     </select>
                     <p className="flex gap-1 text-[11px] text-gray-500">
                       <Info className="size-3.5 shrink-0 text-gray-600" />
-                      Rule is evaluated for claims from this person.
+                      Leave empty to apply to every employee in the company (for
+                      the chosen category). Otherwise pick one employee.
                     </p>
                   </div>
                   <div className="space-y-2">

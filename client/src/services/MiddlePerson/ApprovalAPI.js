@@ -1,9 +1,9 @@
 import axiosInstance from "../../Authorisation/axiosConfig";
 
 /**
- * Normalized shape for the approvals table.
  * @typedef {Object} ApprovalRow
  * @property {string} id
+ * @property {number} [expenseId]
  * @property {string} reviewerLabel
  * @property {string} reviewerSubtext
  * @property {string} requestOwner
@@ -12,53 +12,71 @@ import axiosInstance from "../../Authorisation/axiosConfig";
  * @property {string} amountOriginal
  * @property {string} conversionNote
  * @property {number} amountInCompanyCurrency
+ * @property {string|null} [receiptUrl]
  */
 
-export const FALLBACK_DUMMY_APPROVALS = [
-  {
-    id: "exp-demo-001",
-    reviewerLabel: "Rohit Khond",
-    reviewerSubtext: "none",
-    requestOwner: "Sarah",
-    category: "Food",
-    status: "Approved",
-    amountOriginal: "567 $",
-    conversionNote: "(in INR)",
-    amountInCompanyCurrency: 49896,
-  },
-];
-
 function normalizeApproval(raw) {
+  const expenseId = Number(
+    raw.expenseId ??
+      raw.expense_id ??
+      raw.expenseID ??
+      (raw.expense && (raw.expense.id ?? raw.expense_id)),
+  );
   return {
-    id: String(raw.id ?? raw._id ?? ""),
-    reviewerLabel: raw.reviewerLabel ?? raw.managerName ?? raw.badgeLabel ?? "",
-    reviewerSubtext: raw.reviewerSubtext ?? raw.badgeSubtext ?? "none",
-    requestOwner: raw.requestOwner ?? raw.ownerName ?? raw.employeeName ?? "",
-    category: raw.category ?? raw.categoryName ?? "",
-    status: raw.status ?? raw.requestStatus ?? "",
+    id: String(raw.approvalId ?? raw.id ?? expenseId),
+    expenseId,
+    reviewerLabel:
+      raw.reviewerLabel ?? raw.managerName ?? raw.badgeLabel ?? "Approver",
+    reviewerSubtext: raw.reviewerSubtext ?? raw.badgeSubtext ?? "Pending",
+    requestOwner:
+      raw.requestOwner ?? raw.ownerName ?? raw.employeeName ?? "—",
+    category: raw.category ?? raw.categoryName ?? "—",
+    status: raw.status ?? raw.requestStatus ?? "pending",
     amountOriginal: raw.amountOriginal ?? raw.originalAmountLabel ?? "",
     conversionNote: raw.conversionNote ?? "",
     amountInCompanyCurrency: Number(
       raw.amountInCompanyCurrency ?? raw.convertedAmount ?? 0,
     ),
+    receiptUrl: raw.receiptUrl ?? raw.receipt_url ?? null,
   };
 }
 
-function extractList(payload) {
-  if (Array.isArray(payload)) return payload;
+export function absoluteReceiptUrl(relativeOrAbsolute) {
+  if (!relativeOrAbsolute) return null;
+  const s = String(relativeOrAbsolute);
+  if (/^https?:\/\//i.test(s)) return s;
+  const base = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/$/, "");
+  return `${base}${s.startsWith("/") ? s : `/${s}`}`;
+}
+
+function extractItems(body) {
+  const payload = body?.data !== undefined ? body.data : body;
   if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.approvals)) return payload.approvals;
   return [];
 }
 
 /**
- * GET pending approvals for the current manager.
- * Expects `{ success, data }` where `data` is an array or `{ items: [] }`.
  * @returns {Promise<ApprovalRow[]>}
  */
 export async function fetchPendingApprovals() {
   const res = await axiosInstance.get("/api/manager/approvals");
-  const body = res.data;
-  const payload = body?.data !== undefined ? body.data : body;
-  return extractList(payload).map(normalizeApproval);
+  return extractItems(res.data).map(normalizeApproval);
+}
+
+export async function approveExpense(expenseId, comment) {
+  const { data } = await axiosInstance.post(
+    `/api/manager/approvals/${expenseId}/approve`,
+    { comment: comment || undefined },
+  );
+  return data;
+}
+
+export async function rejectExpense(expenseId, comment) {
+  const { data } = await axiosInstance.post(
+    `/api/manager/approvals/${expenseId}/reject`,
+    { comment: comment || undefined },
+  );
+  return data;
 }

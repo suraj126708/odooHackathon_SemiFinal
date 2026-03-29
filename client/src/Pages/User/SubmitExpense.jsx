@@ -30,6 +30,7 @@ import {
   fetchMyExpenses,
   updateExpense,
   submitExpense,
+  submitExpensePayloadToServer,
   parseReceiptStub,
   summarizeByStatus,
   statusLabel,
@@ -179,6 +180,8 @@ export default function SubmitExpense() {
   const [uploadParsing, setUploadParsing] = useState(false);
   const [viewId, setViewId] = useState(null);
   const receiptInputRef = useRef(null);
+  const uploadReceiptFileRef = useRef(null);
+  const draftFilesRef = useRef(new Map());
   const attachDraftRef = useRef(null);
   const attachDraftIdRef = useRef(null);
 
@@ -190,12 +193,12 @@ export default function SubmitExpense() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchMyExpenses();
+      const data = await fetchMyExpenses(employeeName);
       setRows(data);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [employeeName]);
 
   useEffect(() => {
     load();
@@ -244,6 +247,7 @@ export default function SubmitExpense() {
   };
 
   const openUploadDialog = () => {
+    uploadReceiptFileRef.current = null;
     setUploadForm(defaultUploadForm());
     setUploadOpen(true);
   };
@@ -252,6 +256,7 @@ export default function SubmitExpense() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    uploadReceiptFileRef.current = file;
     setUploadParsing(true);
     try {
       const parsed = await parseReceiptStub(file);
@@ -259,9 +264,13 @@ export default function SubmitExpense() {
         ...f,
         receiptFileName: file.name,
         description: parsed.description || f.description,
-        amount: parsed.amount ?? f.amount,
-        currencyCode: parsed.currencyCode || f.currencyCode,
-        expenseDate: parsed.expenseDate || f.expenseDate,
+        ...(parsed.amount != null &&
+        Number.isFinite(Number(parsed.amount)) &&
+        Number(parsed.amount) > 0
+          ? { amount: String(parsed.amount) }
+          : {}),
+        ...(parsed.currencyCode ? { currencyCode: parsed.currencyCode } : {}),
+        ...(parsed.expenseDate ? { expenseDate: parsed.expenseDate } : {}),
       }));
       toast.success("Receipt scanned — review and edit below");
     } catch (err) {
@@ -313,24 +322,24 @@ export default function SubmitExpense() {
       return;
     }
     try {
-      const row = await createDraftExpense({
-        employeeName,
+      await submitExpensePayloadToServer({
         description: uploadForm.description.trim(),
         expenseDate: uploadForm.expenseDate,
         category: uploadForm.category,
-        paidBy: uploadForm.paidBy,
-        remarks: uploadForm.remarks || "",
         amount,
         currencyCode: uploadForm.currencyCode,
+        remarks: uploadForm.remarks || "",
         detailedDescription: uploadForm.detailedDescription || "",
-        receiptFileName: uploadForm.receiptFileName,
+        receiptFile: uploadReceiptFileRef.current || null,
       });
-      await submitExpense(row.id, baseCurrency);
+      uploadReceiptFileRef.current = null;
       await load();
       setUploadOpen(false);
       toast.success("Submitted for approval");
     } catch (e) {
-      toast.error(e.message || "Submit failed");
+      toast.error(
+        e?.response?.data?.message || e.message || "Submit failed",
+      );
     }
   };
 
@@ -339,14 +348,13 @@ export default function SubmitExpense() {
     e.target.value = "";
     const id = attachDraftIdRef.current;
     if (!file || !id) return;
+    draftFilesRef.current.set(id, file);
     try {
       const parsed = await parseReceiptStub(file);
       await persistPatch(id, {
         receiptFileName: file.name,
-        description: parsed.description,
-        amount: parsed.amount,
-        currencyCode: parsed.currencyCode,
-        expenseDate: parsed.expenseDate,
+        ...(parsed.description ? { description: parsed.description } : {}),
+        ...(parsed.expenseDate ? { expenseDate: parsed.expenseDate } : {}),
       });
       toast.success("Receipt linked and fields updated");
     } catch (err) {
@@ -357,11 +365,15 @@ export default function SubmitExpense() {
 
   const submitRow = async (id) => {
     try {
-      const next = await submitExpense(id, baseCurrency);
-      setRows((prev) => prev.map((r) => (r.id === id ? next : r)));
+      const receiptFile = draftFilesRef.current.get(id) || null;
+      await submitExpense(id, { receiptFile });
+      draftFilesRef.current.delete(id);
+      await load();
       toast.success("Submitted for approval");
     } catch (e) {
-      toast.error(e.message || "Submit failed");
+      toast.error(
+        e?.response?.data?.message || e.message || "Submit failed",
+      );
     }
   };
 
@@ -987,7 +999,8 @@ export default function SubmitExpense() {
               )}
             </div>
             <p className="text-xs text-gray-500">
-              Details are filled from OCR (demo). Edit anything before saving.
+              The demo scan only suggests a title from the file name. Enter the
+              amount yourself so it is never changed automatically.
             </p>
 
             <div className="grid gap-3 sm:grid-cols-2">

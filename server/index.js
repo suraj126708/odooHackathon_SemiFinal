@@ -11,6 +11,7 @@ const AuthRouter = require("./routes/AuthRouter");
 const AdminRouter = require("./routes/AdminRouter");
 const UserRouter = require("./routes/UserRouter");
 const ExpenseRouter = require("./routes/ExpenseRouter");
+const ManagerRouter = require("./routes/ManagerRouter");
 
 const app = express();
 
@@ -73,6 +74,7 @@ app.use("/api/auth", AuthRouter);
 app.use("/api/admin", AdminRouter);
 app.use("/api/users", UserRouter);
 app.use("/api/expenses", ExpenseRouter);
+app.use("/api/manager", ManagerRouter);
 
 // Health check
 app.get("/ping", (req, res) => {

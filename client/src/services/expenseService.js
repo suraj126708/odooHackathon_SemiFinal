@@ -1,3 +1,5 @@
+import axiosInstance from "../Authorisation/axiosConfig";
+
 const STORAGE_KEY = "rms_employee_expenses_v1";
 
 function loadRaw() {
@@ -20,23 +22,6 @@ function uid() {
     return crypto.randomUUID();
   }
   return `exp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-}
-
-async function convertToBase(amount, fromCurrency, toCurrency) {
-  if (!amount || fromCurrency === toCurrency) return amount;
-  try {
-    const u = new URL("https://api.frankfurter.app/latest");
-    u.searchParams.set("from", fromCurrency);
-    u.searchParams.set("to", toCurrency);
-    const res = await fetch(u.toString());
-    if (!res.ok) return null;
-    const data = await res.json();
-    const rate = data?.rates?.[toCurrency];
-    if (typeof rate !== "number") return null;
-    return Math.round(amount * rate * 100) / 100;
-  } catch {
-    return null;
-  }
 }
 
 export const DEFAULT_BASE_CURRENCY = "INR";
@@ -63,9 +48,112 @@ export const CURRENCIES = [
 
 export const PAID_BY_OPTIONS = ["Self", "Company card", "Other"];
 
-export async function fetchMyExpenses() {
-  return loadRaw().sort(
-    (a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
+function mapServerExpenseToRow(exp, employeeName) {
+  const x = exp?.dataValues ?? exp;
+  const idNum = x.id;
+  const ed = x.expense_date ?? x.expenseDate;
+  const dateStr = ed == null ? "" : String(ed).slice(0, 10);
+  const createdRaw = x.created_at ?? x.createdAt;
+  const created = createdRaw
+    ? new Date(createdRaw).toISOString()
+    : new Date().toISOString();
+  const receipt = x.receipt_url ?? x.receiptUrl;
+  return {
+    id: `srv_${idNum}`,
+    serverId: idNum,
+    employeeName: employeeName || "",
+    description: x.description || "",
+    expenseDate: dateStr,
+    category: x.category || "Other",
+    paidBy: "Self",
+    remarks: "",
+    amount: Number(x.amount),
+    currencyCode: x.currency_code || x.currencyCode || DEFAULT_BASE_CURRENCY,
+    amountInCompanyCurrency:
+      x.amount_in_company_currency != null || x.amountInCompanyCurrency != null
+        ? Number(x.amount_in_company_currency ?? x.amountInCompanyCurrency)
+        : null,
+    detailedDescription: "",
+    receiptFileName: receipt ? String(receipt).split("/").pop() : null,
+    status: x.status,
+    approvalLog: [],
+    createdAt: created,
+    updatedAt: created,
+  };
+}
+
+function removeDraftById(id) {
+  const list = loadRaw().filter((e) => e.id !== id);
+  saveRaw(list);
+}
+
+function buildDescription({ description, remarks, detailedDescription }) {
+  return [description, remarks, detailedDescription]
+    .map((part) => (part != null ? String(part).trim() : ""))
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/**
+ * Submit one expense to the API (creates server-side approval workflow).
+ * @param {object} payload
+ * @param {string} [payload.description]
+ * @param {string} [payload.expenseDate] YYYY-MM-DD
+ * @param {string} [payload.category]
+ * @param {number} payload.amount
+ * @param {string} [payload.currencyCode]
+ * @param {string} [payload.remarks]
+ * @param {string} [payload.detailedDescription]
+ * @param {File|null} [payload.receiptFile]
+ */
+export async function submitExpensePayloadToServer(payload) {
+  const {
+    description,
+    expenseDate,
+    category,
+    amount,
+    currencyCode,
+    remarks,
+    detailedDescription,
+    receiptFile,
+  } = payload;
+  const desc = buildDescription({
+    description,
+    remarks,
+    detailedDescription,
+  });
+  const fd = new FormData();
+  fd.append("amount", String(amount));
+  fd.append("currency_code", (currencyCode || DEFAULT_BASE_CURRENCY).toUpperCase());
+  fd.append("category", category || "Other");
+  fd.append("description", desc || "");
+  fd.append("expense_date", expenseDate);
+  if (receiptFile) fd.append("receipt", receiptFile);
+  const { data } = await axiosInstance.post("/api/expenses", fd, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  if (!data?.success) {
+    throw new Error(data?.message || "Could not submit expense.");
+  }
+  return data;
+}
+
+export async function fetchMyExpenses(employeeName = "") {
+  const localDrafts = loadRaw().filter((e) => e.status === "draft");
+  let serverRows = [];
+  try {
+    const { data } = await axiosInstance.get("/api/expenses/mine");
+    const expenses = data?.data?.expenses ?? [];
+    serverRows = Array.isArray(expenses)
+      ? expenses.map((e) => mapServerExpenseToRow(e, employeeName))
+      : [];
+  } catch (e) {
+    console.warn("fetchMyExpenses API:", e?.message || e);
+  }
+  const merged = [...localDrafts, ...serverRows];
+  return merged.sort(
+    (a, b) =>
+      new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt),
   );
 }
 
@@ -113,7 +201,12 @@ export async function updateExpense(id, patch) {
   return next;
 }
 
-export async function submitExpense(id, baseCurrency = DEFAULT_BASE_CURRENCY) {
+/**
+ * @param {string} id Local draft id
+ * @param {{ receiptFile?: File|null }} [options]
+ */
+export async function submitExpense(id, options = {}) {
+  const { receiptFile } = options;
   const list = loadRaw();
   const i = list.findIndex((e) => e.id === id);
   if (i === -1) throw new Error("Expense not found");
@@ -125,29 +218,18 @@ export async function submitExpense(id, baseCurrency = DEFAULT_BASE_CURRENCY) {
     throw new Error("Enter a valid amount");
   }
 
-  const from = cur.currencyCode || DEFAULT_BASE_CURRENCY;
-  const converted =
-    from === baseCurrency
-      ? amount
-      : await convertToBase(amount, from, baseCurrency);
-
-  const submittedAt = new Date().toISOString();
-  const next = {
-    ...cur,
-    status: "pending",
-    amountInCompanyCurrency: converted ?? amount,
-    approvalLog: [
-      {
-        approver: "—",
-        status: "Submitted",
-        time: submittedAt,
-      },
-    ],
-    updatedAt: submittedAt,
-  };
-  list[i] = next;
-  saveRaw(list);
-  return next;
+  await submitExpensePayloadToServer({
+    description: cur.description,
+    expenseDate: (cur.expenseDate || "").slice(0, 10),
+    category: cur.category,
+    amount,
+    currencyCode: cur.currencyCode,
+    remarks: cur.remarks,
+    detailedDescription: cur.detailedDescription,
+    receiptFile: receiptFile || null,
+  });
+  removeDraftById(id);
+  return { ok: true };
 }
 
 export async function parseReceiptStub(file) {
@@ -155,9 +237,9 @@ export async function parseReceiptStub(file) {
   const base = file?.name?.replace(/\.[^.]+$/, "") || "Receipt";
   return {
     description: `${base}`.slice(0, 120),
-    amount: Math.round((40 + Math.random() * 200) * 100) / 100,
-    currencyCode: DEFAULT_BASE_CURRENCY,
-    expenseDate: new Date().toISOString().slice(0, 10),
+    amount: null,
+    currencyCode: null,
+    expenseDate: null,
   };
 }
 

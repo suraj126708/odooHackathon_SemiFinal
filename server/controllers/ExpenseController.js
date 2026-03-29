@@ -1,52 +1,69 @@
-// controllers/ExpenseController.js
 const { Expense, Company, User, ExpenseApproval } = require("../models");
 const { convertCurrency } = require("../utils/currencyUtils");
 const { sequelize } = require("../models/db");
+const {
+  findApplicableRule,
+  createInitialApprovals,
+  fallbackManagerOnly,
+} = require("../services/approvalEngine");
+const {
+  sendExpenseSubmittedToEmployee,
+  sendExpensePendingForApprover,
+} = require("../utils/mailer");
+
+const listMyExpenses = async (req, res) => {
+  try {
+    const rows = await Expense.findAll({
+      where: { submitted_by: req.user._id },
+      order: [["created_at", "DESC"]],
+    });
+    return res.status(200).json({
+      success: true,
+      message: "OK",
+      data: { expenses: rows },
+    });
+  } catch (error) {
+    console.error("listMyExpenses:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Could not load expenses.",
+    });
+  }
+};
 
 const submitExpense = async (req, res) => {
-  // Start a transaction to ensure both Expense and Approval records are created safely
   const transaction = await sequelize.transaction();
 
   try {
     const { amount, currency_code, category, description, expense_date } =
       req.body;
-    const userId = req.user._id; // Assuming your JWT middleware sets this
+    const userId = req.user._id;
     const companyId = req.user.company_id;
 
-    // 1. Basic Validation
     if (!amount || !currency_code || !category || !expense_date) {
       await transaction.rollback();
       return res.status(400).json({
+        success: false,
         message: "Amount, currency, category, and date are required.",
       });
     }
 
-    if (!req.file) {
-      await transaction.rollback();
-      return res.status(400).json({ message: "Receipt image is required." });
-    }
-
-    // 2. Fetch Company to get base currency
     const company = await Company.findByPk(companyId);
     if (!company) {
       await transaction.rollback();
-      return res.status(404).json({ message: "Company not found." });
+      return res.status(404).json({ success: false, message: "Company not found." });
     }
 
-    // Get the correct property, fallback to USD if somehow both are missing
     const targetCurrency = company.currency_code || "USD";
 
-    // 3. Convert Currency
     const convertedAmount = await convertCurrency(
       parseFloat(amount),
       currency_code,
       targetCurrency,
     );
 
-    // 4. Construct receipt URL (adjust base URL if needed based on your environment)
-    const receipt_url = `/uploads/${req.file.filename}`;
+    const receipt_url = req.file ? `/uploads/${req.file.filename}` : null;
 
-    // 5. Create the Expense Record
     const newExpense = await Expense.create(
       {
         company_id: companyId,
@@ -59,45 +76,63 @@ const submitExpense = async (req, res) => {
         expense_date,
         receipt_url,
         status: "pending",
-        current_step: 1, // Moving to step 1 of approval
+        current_step: 1,
       },
       { transaction },
     );
 
-    // 6. Initialize the First Approval Step (Direct Manager)
-    // According to the problem statement, if "IS MANAGER APPROVER" is conceptually active,
-    // the direct manager should be the first approver.
-    const employee = await User.findByPk(userId);
+    const employee = await User.findByPk(userId, { transaction });
+    const rule = await findApplicableRule(companyId, userId, category);
 
-    if (employee && employee.manager_id) {
-      await ExpenseApproval.create(
-        {
-          expense_id: newExpense.id,
-          approver_id: employee.manager_id,
-          step: 1,
-          status: "pending",
-        },
-        { transaction },
-      );
+    if (rule) {
+      await createInitialApprovals(transaction, newExpense, rule, employee);
     } else {
-      // If the user has no manager (e.g., they are the Admin or top-level),
-      // you might auto-approve or route to a default company approver.
-      // For now, we'll mark it as approved if there's no workflow needed.
-      await newExpense.update({ status: "approved" }, { transaction });
+      await fallbackManagerOnly(transaction, newExpense, employee);
     }
 
-    // Commit the transaction
     await transaction.commit();
 
+    const freshExpense = await Expense.findByPk(newExpense.id);
+    const pendingApprovals = await ExpenseApproval.findAll({
+      where: { expense_id: newExpense.id },
+    });
+
+    try {
+      await sendExpenseSubmittedToEmployee({
+        to: employee.email,
+        employeeName: employee.name,
+        expenseId: newExpense.id,
+        category,
+        amount: String(amount),
+        currency: currency_code.toUpperCase(),
+      });
+      const approverIds = [...new Set(pendingApprovals.map((p) => p.approver_id))];
+      const approvers = await User.findAll({ where: { id: approverIds } });
+      for (const a of approvers) {
+        await sendExpensePendingForApprover({
+          to: a.email,
+          approverName: a.name,
+          submitterName: employee.name,
+          expenseId: newExpense.id,
+          category,
+          amount: String(amount),
+          currency: currency_code.toUpperCase(),
+        });
+      }
+    } catch (mailErr) {
+      console.error("Expense notification emails:", mailErr.message);
+    }
+
     res.status(201).json({
-      message: "Expense submitted successfully",
       success: true,
-      expense: newExpense,
+      message: "Expense submitted successfully",
+      data: { expense: freshExpense },
     });
   } catch (error) {
     await transaction.rollback();
     console.error("Submit Expense Error:", error);
     res.status(500).json({
+      success: false,
       message: "Internal server error while submitting expense.",
       error: error.message,
     });
@@ -105,5 +140,6 @@ const submitExpense = async (req, res) => {
 };
 
 module.exports = {
+  listMyExpenses,
   submitExpense,
 };

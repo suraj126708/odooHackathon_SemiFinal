@@ -89,8 +89,96 @@ async function sendLoginCredentialsEmail({
   return { to, ...result };
 }
 
+async function sendExpenseSubmittedToEmployee({
+  to,
+  employeeName,
+  expenseId,
+  category,
+  amount,
+  currency,
+}) {
+  const subject = `Expense #${expenseId} submitted`;
+  const text = [
+    `Hello ${employeeName || "there"},`,
+    "",
+    `Your reimbursement request #${expenseId} was submitted successfully.`,
+    `Category: ${category}`,
+    `Amount: ${amount} ${currency}`,
+    "",
+    "You will be notified when it is approved or rejected.",
+    "",
+    "— Reimbursement Management System",
+  ].join("\n");
+  return sendMail({ to, subject, text });
+}
+
+async function sendExpensePendingForApprover({
+  to,
+  approverName,
+  submitterName,
+  expenseId,
+  category,
+  amount,
+  currency,
+}) {
+  const subject = `Action required: expense #${expenseId}`;
+  const text = [
+    `Hello ${approverName || "there"},`,
+    "",
+    `${submitterName} submitted expense #${expenseId} for your approval.`,
+    `Category: ${category}`,
+    `Amount: ${amount} ${currency}`,
+    "",
+    "Please open the manager approvals dashboard to approve or reject.",
+    "",
+    "— Reimbursement Management System",
+  ].join("\n");
+  return sendMail({ to, subject, text });
+}
+
+async function sendExpenseDecisionToEmployee({
+  to,
+  employeeName,
+  expenseId,
+  decision,
+  reason,
+  category,
+  amount,
+  currency,
+  approverName,
+}) {
+  const approved = decision === "approved";
+  const subject = approved
+    ? `Expense #${expenseId} approved`
+    : `Expense #${expenseId} rejected`;
+  const reasonLine =
+    reason && String(reason).trim()
+      ? `Approver note: ${String(reason).trim()}`
+      : "No comment was provided.";
+  const text = [
+    `Hello ${employeeName || "there"},`,
+    "",
+    approved
+      ? `Your expense request #${expenseId} has been fully approved.`
+      : `Your expense request #${expenseId} was rejected.`,
+    approverName ? `Decision by: ${approverName}` : "",
+    `Category: ${category}`,
+    `Amount: ${amount} ${currency}`,
+    "",
+    reasonLine,
+    "",
+    "— Reimbursement Management System",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return sendMail({ to, subject, text });
+}
+
 module.exports = {
   isMailConfigured,
   sendMail,
   sendLoginCredentialsEmail,
+  sendExpenseSubmittedToEmployee,
+  sendExpensePendingForApprover,
+  sendExpenseDecisionToEmployee,
 };

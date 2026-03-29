@@ -10,4 +10,13 @@ const ensureAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = { ensureAdmin };
+const ensureManagerOrAdmin = (req, res, next) => {
+  const r = req.user?.role;
+  if (r === "manager" || r === "admin") return next();
+  return res.status(403).json({
+    message: "Access denied. Manager or admin only.",
+    success: false,
+  });
+};
+
+module.exports = { ensureAdmin, ensureManagerOrAdmin };

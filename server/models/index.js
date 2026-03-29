@@ -15,17 +15,19 @@ User.belongsTo(User, { as: "Manager", foreignKey: "manager_id" });
 // Company → Expenses
 Company.hasMany(Expense, { foreignKey: "company_id" });
 
-// Expense → User
-Expense.belongsTo(User, { foreignKey: "submitted_by" });
+// Expense → User (submitter)
+Expense.belongsTo(User, { foreignKey: "submitted_by", as: "Submitter" });
 
 // Expense → Approvals
 Expense.hasMany(ExpenseApproval, { foreignKey: "expense_id" });
+ExpenseApproval.belongsTo(Expense, { foreignKey: "expense_id" });
 
 // Approval → User
 ExpenseApproval.belongsTo(User, { foreignKey: "approver_id" });
 
 // Approval Rules
 Company.hasMany(ApprovalRule, { foreignKey: "company_id" });
+Expense.belongsTo(ApprovalRule, { foreignKey: "rule_id", as: "Rule" });
 
 module.exports = {
   Company,

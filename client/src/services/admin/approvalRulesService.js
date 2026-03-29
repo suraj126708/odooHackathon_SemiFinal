@@ -1,25 +1,10 @@
-const STORAGE_KEY = "rms_approval_rules_v1";
+import axiosInstance from "../../Authorisation/axiosConfig";
 
 export function uid() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
   return `rule_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-}
-
-function loadRaw() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveRaw(list) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
 export const RULE_TYPE_OPTIONS = [
@@ -40,7 +25,7 @@ export const RULE_TYPE_OPTIONS = [
   {
     value: "specific",
     label: "Specific approver",
-    hint: "One designated person must approve; others optional.",
+    hint: "One designated person must approve.",
     accent: "border-amber-500/40 bg-amber-500/[0.07] text-amber-200/90",
     ring: "data-[active=true]:border-amber-400/60 data-[active=true]:ring-2 data-[active=true]:ring-amber-500/30",
   },
@@ -51,12 +36,20 @@ export const RULE_TYPE_OPTIONS = [
     accent: "border-rose-500/40 bg-rose-500/[0.07] text-rose-200/90",
     ring: "data-[active=true]:border-rose-400/60 data-[active=true]:ring-2 data-[active=true]:ring-rose-500/30",
   },
+  {
+    value: "all",
+    label: "All (any one)",
+    hint: "Everyone in the group is notified; the first approval completes the claim.",
+    accent: "border-sky-500/40 bg-sky-500/[0.07] text-sky-200/90",
+    ring: "data-[active=true]:border-sky-400/60 data-[active=true]:ring-2 data-[active=true]:ring-sky-500/30",
+  },
 ];
 
 export function emptyRuleForm() {
   return {
     name: "",
     description: "",
+    category: "All",
     subjectUserId: "",
     managerId: "",
     ruleType: "sequential",
@@ -68,36 +61,83 @@ export function emptyRuleForm() {
   };
 }
 
+function mapRuleFromApi(r) {
+  const seq = r.approver_sequence || [];
+  return {
+    id: String(r.id),
+    name: r.name,
+    description: r.description || "",
+    category: r.category || "All",
+    subjectUserId: r.subject_user_id ? String(r.subject_user_id) : "",
+    managerId: r.rule_manager_id ? String(r.rule_manager_id) : "",
+    ruleType: r.rule_type,
+    isManagerApprover: Boolean(r.is_manager_approver),
+    approversSequence: true,
+    minApprovalPct: r.min_approval_pct ?? 50,
+    specificApproverId: r.specific_approver_id
+      ? String(r.specific_approver_id)
+      : "",
+    approvers:
+      seq.length > 0
+        ? seq.map((id, i) => ({
+            rowId: `row-${r.id}-${i}`,
+            userId: String(id),
+            required: true,
+          }))
+        : [{ rowId: uid(), userId: "", required: true }],
+  };
+}
+
+function buildPayload(form) {
+  const approverSequence = form.approvers
+    .filter((a) => a.userId)
+    .map((a) => Number(a.userId));
+  return {
+    name: form.name,
+    description: form.description,
+    category: form.category || "All",
+    ruleType: form.ruleType,
+    isManagerApprover: form.isManagerApprover,
+    subjectUserId: form.subjectUserId || null,
+    managerId: form.managerId || null,
+    approvers: form.approvers,
+    approverSequence,
+    minApprovalPct:
+      form.ruleType === "percentage" || form.ruleType === "hybrid"
+        ? Number(form.minApprovalPct)
+        : null,
+    specificApproverId:
+      form.ruleType === "specific" || form.ruleType === "hybrid"
+        ? form.specificApproverId || null
+        : null,
+  };
+}
+
 export async function listApprovalRules() {
-  return loadRaw().sort(
-    (a, b) =>
-      new Date(b.updatedAt || b.createdAt).getTime() -
-      new Date(a.updatedAt || a.createdAt).getTime()
-  );
+  const { data } = await axiosInstance.get("/api/admin/approval-rules");
+  const inner = data?.data ?? data;
+  const rules = inner?.rules ?? [];
+  return Array.isArray(rules) ? rules.map(mapRuleFromApi) : [];
 }
 
 export async function getApprovalRule(id) {
-  return loadRaw().find((r) => r.id === id) || null;
+  const list = await listApprovalRules();
+  return list.find((r) => r.id === String(id)) || null;
 }
 
 export async function upsertApprovalRule(payload) {
-  const list = loadRaw();
-  const now = new Date().toISOString();
-  const id = payload.id || uid();
-  const idx = list.findIndex((r) => r.id === id);
-  const row = {
-    ...payload,
-    id,
-    updatedAt: now,
-    createdAt: idx >= 0 ? list[idx].createdAt : now,
-  };
-  if (idx >= 0) list[idx] = row;
-  else list.push(row);
-  saveRaw(list);
-  return row;
+  const body = buildPayload(payload);
+  if (payload.id) {
+    const { data } = await axiosInstance.put(
+      `/api/admin/approval-rules/${payload.id}`,
+      body,
+    );
+    return data;
+  }
+  const { data } = await axiosInstance.post("/api/admin/approval-rules", body);
+  return data;
 }
 
 export async function deleteApprovalRule(id) {
-  const list = loadRaw().filter((r) => r.id !== id);
-  saveRaw(list);
+  await axiosInstance.delete(`/api/admin/approval-rules/${id}`);
 }

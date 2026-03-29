@@ -14,6 +14,7 @@ const Expense = sequelize.define("Expense", {
   receipt_url: DataTypes.STRING,
   status: DataTypes.ENUM("draft", "pending", "approved", "rejected"),
   current_step: { type: DataTypes.INTEGER, defaultValue: 0 },
+  rule_id: { type: DataTypes.INTEGER, allowNull: true },
   created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   updated_at: DataTypes.DATE,
 });

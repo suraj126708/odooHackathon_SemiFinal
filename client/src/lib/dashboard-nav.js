@@ -1,7 +1,7 @@
 import {
   LayoutDashboard,
   Users,
-  Building2,
+  //Building2,
   CheckSquare,
   Receipt,
   GitBranch,
@@ -10,7 +10,7 @@ import {
 export const adminSidebarItems = [
   { to: "/admin/dashboard", label: "Overview", icon: LayoutDashboard },
   { to: "/admin/users", label: "Users", icon: Users },
-  { to: "/admin/company/new", label: "Company", icon: Building2 },
+  //{ to: "/admin/company/new", label: "Company", icon: Building2 },
   { to: "/admin/approval-rules", label: "Approval rules", icon: GitBranch },
 ];
 
