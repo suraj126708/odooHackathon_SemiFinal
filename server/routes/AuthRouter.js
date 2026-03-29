@@ -27,6 +27,8 @@ router.post(
 
 router.post("/login", loginValidation, login);
 
+// POST /api/auth/forgot-password is registered in server/index.js
+
 // Protected routes (require authentication)
 router.get("/profile", ensureAuthenticated, getProfile);
 

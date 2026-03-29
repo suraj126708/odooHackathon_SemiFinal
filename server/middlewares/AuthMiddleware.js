@@ -96,8 +96,28 @@ const updateProfileValidation = (req, res, next) => {
   next();
 };
 
+const forgotPasswordValidation = (req, res, next) => {
+  const schema = joi.object({
+    email: joi.string().email().required().messages({
+      "string.email": "Please provide a valid email address",
+      "any.required": "Email is required",
+    }),
+  });
+
+  const { error } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      message: error.details[0].message,
+      success: false,
+      field: error.details[0].path[0],
+    });
+  }
+  next();
+};
+
 module.exports = {
   signUpValidation,
   loginValidation,
   updateProfileValidation,
+  forgotPasswordValidation,
 };

@@ -36,7 +36,7 @@ const tiles = [
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
 
-  const dash = getHomePathForRole(user?.role);
+  const dash = getHomePathForRole(user?.role, user?.roles);
 
   return (
     <div className="relative">

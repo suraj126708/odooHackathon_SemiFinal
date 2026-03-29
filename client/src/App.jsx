@@ -10,11 +10,9 @@ import MainLayout from "./components/MainLayout";
 import Home from "./Pages/Home";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
-import AdminDashboard from "./Pages/AdminDashboard";
 import Adduser from "./Pages/Admin/Adduser";
 import CreateCompany from "./Pages/Admin/CreateCompany";
 import ApprovalRules from "./Pages/Admin/ApprovalRules";
-import ManagerDashboard from "./Pages/ManagerDashboard";
 import SubmitExpense from "./Pages/User/SubmitExpense";
 import ApprovalDashboard from "./Pages/MiddlePerson/ApprovalDashboard";
 import ProfilePage from "./Pages/ProfilePage";
@@ -39,11 +37,11 @@ function App() {
               <Route path="/register" element={<Register />} />
               <Route
                 path="/admin/dashboard"
-                element={
-                  <RequireRole roles={["admin"]}>
-                    <AdminDashboard />
-                  </RequireRole>
-                }
+                element={<Navigate to="/admin/users" replace />}
+              />
+              <Route
+                path="/manager/dashboard"
+                element={<Navigate to="/manager/approvals" replace />}
               />
               <Route
                 path="/admin/users"
@@ -66,14 +64,6 @@ function App() {
                 element={
                   <RequireRole roles={["admin"]}>
                     <ApprovalRules />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/manager/dashboard"
-                element={
-                  <RequireRole roles={["manager"]}>
-                    <ManagerDashboard />
                   </RequireRole>
                 }
               />

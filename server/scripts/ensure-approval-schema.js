@@ -6,6 +6,7 @@ require("dotenv").config({ path: require("path").join(__dirname, "../.env") });
 const { sequelize } = require("../models/db");
 
 const patches = [
+  "ALTER TABLE users ADD COLUMN roles JSON NULL",
   "ALTER TABLE ApprovalRules ADD COLUMN description TEXT NULL",
   "ALTER TABLE ApprovalRules ADD COLUMN subject_user_id INT NULL",
   "ALTER TABLE ApprovalRules ADD COLUMN rule_manager_id INT NULL",

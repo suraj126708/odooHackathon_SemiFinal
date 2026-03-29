@@ -1,7 +1,7 @@
-// middleware/RoleMiddleware.js
+const { userHasAnyRole } = require("../utils/roleUtils");
+
 const ensureAdmin = (req, res, next) => {
-  // req.user is populated by your existing ensureAuthenticated middleware
-  if (!req.user || req.user.role !== "admin") {
+  if (!req.user || !userHasAnyRole(req.user, ["admin"])) {
     return res.status(403).json({
       message: "Access denied. Only Admins can perform this action.",
       success: false,
@@ -11,12 +11,13 @@ const ensureAdmin = (req, res, next) => {
 };
 
 const ensureManagerOrAdmin = (req, res, next) => {
-  const r = req.user?.role;
-  if (r === "manager" || r === "admin") return next();
-  return res.status(403).json({
-    message: "Access denied. Manager or admin only.",
-    success: false,
-  });
+  if (!req.user || !userHasAnyRole(req.user, ["manager", "admin"])) {
+    return res.status(403).json({
+      message: "Access denied. Manager or admin only.",
+      success: false,
+    });
+  }
+  next();
 };
 
 module.exports = { ensureAdmin, ensureManagerOrAdmin };
