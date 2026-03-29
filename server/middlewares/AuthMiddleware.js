@@ -2,6 +2,13 @@ const joi = require("joi");
 
 const signUpValidation = (req, res, next) => {
   const schema = joi.object({
+    companyName: joi.string().min(2).max(100).required().messages({
+      "string.min": "Company name must be at least 2 characters long",
+      "any.required": "Company name is required",
+    }),
+    country: joi.string().min(2).max(100).required().messages({
+      "any.required": "Country is required",
+    }),
     name: joi.string().min(2).max(100).required().messages({
       "string.min": "Name must be at least 2 characters long",
       "string.max": "Name cannot exceed 100 characters",

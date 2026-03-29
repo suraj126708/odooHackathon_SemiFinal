@@ -1,11 +1,32 @@
 const { Op, UniqueConstraintError } = require("sequelize");
-const { User } = require("../models");
+const { User, Company } = require("../models"); // Ensure Company is exported from models/index.js
+const { sequelize } = require("../models/db"); // Needed for transactions
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const {
   convertToImageUrl,
   convertToImageUrlStatic,
 } = require("../utils/imageUtils");
+
+// --- Helper to fetch currency ---
+const getCurrencyByCountry = async (countryName) => {
+  try {
+    const response = await fetch("https://restcountries.com/v3.1/all?fields=name,currencies");
+    const countries = await response.json();
+    
+    const countryData = countries.find(
+      (c) => c.name.common.toLowerCase() === countryName.toLowerCase()
+    );
+
+    if (countryData && countryData.currencies) {
+      return Object.keys(countryData.currencies)[0]; 
+    }
+    return "USD"; 
+  } catch (error) {
+    console.error("Error fetching currency:", error);
+    return "USD"; 
+  }
+};
 
 const processUserForResponse = (user, req) => {
   const raw = user.get ? user.get({ plain: true }) : { ...user };
@@ -30,25 +51,21 @@ const toPublicUser = (userResponse) => ({
   profilePicture: userResponse.profilePicture,
   bio: userResponse.bio,
   role: userResponse.role,
+  companyId: userResponse.companyId, // Added companyId
 });
 
 const signUp = async (req, res) => {
-  try {
-    const { name, email, password, username, bio } = req.body;
+  const transaction = await sequelize.transaction();
 
-    if (!name || !email || !password || !username) {
-      return res.status(400).json({
-        message: "All required fields must be provided",
-        success: false,
-        required: ["name", "email", "password", "username"],
-      });
-    }
+  try {
+    const { companyName, country, name, email, password, username, bio } = req.body;
 
     const existingUser = await User.findOne({
       where: { [Op.or]: [{ email }, { username }] },
     });
 
     if (existingUser) {
+      await transaction.rollback();
       const conflictField = existingUser.email === email ? "email" : "username";
       return res.status(409).json({
         message: `User already exists with this ${conflictField}`,
@@ -57,17 +74,21 @@ const signUp = async (req, res) => {
       });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({
-        message: "Password must be at least 6 characters long",
-        success: false,
-      });
-    }
-
     const profilePicture = req.file
       ? convertToImageUrl(req.file.path, req)
       : null;
 
+    // 1. Fetch Currency
+    const baseCurrency = await getCurrencyByCountry(country);
+
+    // 2. Create Company
+    const newCompany = await Company.create({
+      name: companyName,
+      country: country,
+      baseCurrency: baseCurrency
+    }, { transaction });
+
+    // 3. Create Admin User
     const newUser = await User.create({
       name,
       email,
@@ -75,14 +96,19 @@ const signUp = async (req, res) => {
       password: await bcrypt.hash(password, 12),
       profilePicture,
       bio: bio || "",
-      role: "user",
-    });
+      role: "Admin", // Automatically assign Admin role
+      companyId: newCompany.id,
+      managerId: null 
+    }, { transaction });
+
+    await transaction.commit();
 
     const jwtToken = jwt.sign(
       {
         email: newUser.email,
         _id: newUser.id,
         role: newUser.role,
+        companyId: newUser.companyId
       },
       process.env.JWT_SECRET || "your-secret-key",
       { expiresIn: "7d" }
@@ -90,12 +116,14 @@ const signUp = async (req, res) => {
 
     const userResponse = processUserForResponse(newUser, req);
     res.status(201).json({
-      message: "User registered successfully",
+      message: "Company and Admin registered successfully",
       success: true,
       token: jwtToken,
       user: toPublicUser(userResponse),
+      company: newCompany
     });
   } catch (err) {
+    await transaction.rollback();
     console.error("SignUp Error:", err);
 
     if (err instanceof UniqueConstraintError) {
@@ -118,27 +146,14 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and password are required",
-        success: false,
-      });
-    }
-
     const user = await User.unscoped().findOne({ where: { email } });
     if (!user) {
-      return res.status(401).json({
-        message: "Invalid email or password",
-        success: false,
-      });
+      return res.status(401).json({ message: "Invalid email or password", success: false });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({
-        message: "Invalid email or password",
-        success: false,
-      });
+      return res.status(401).json({ message: "Invalid email or password", success: false });
     }
 
     const jwtToken = jwt.sign(
@@ -146,6 +161,7 @@ const login = async (req, res) => {
         email: user.email,
         _id: user.id,
         role: user.role,
+        companyId: user.companyId // Added companyId
       },
       process.env.JWT_SECRET || "your-secret-key",
       { expiresIn: "7d" }
@@ -160,13 +176,9 @@ const login = async (req, res) => {
     });
   } catch (err) {
     console.error("Login Error:", err);
-    res.status(500).json({
-      message: "Internal server error during login",
-      success: false,
-    });
+    res.status(500).json({ message: "Internal server error during login", success: false });
   }
 };
-
 const getProfile = async (req, res) => {
   try {
     const user = await User.findByPk(req.user._id);

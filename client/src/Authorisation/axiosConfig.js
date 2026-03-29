@@ -14,7 +14,8 @@ const axiosInstance = axios.create({
 // Request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token =
+      localStorage.getItem("rms_token") || localStorage.getItem("token");
     console.log("Request Config:", config);
     console.log("Request URL:", config.url);
     console.log("Request Method:", config.method);
@@ -71,6 +72,8 @@ axiosInstance.interceptors.response.use(
 
     // Handle 401 unauthorized
     if (error.response.status === 401) {
+      localStorage.removeItem("rms_token");
+      localStorage.removeItem("rms_user");
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       // Don't redirect automatically, let the component handle it

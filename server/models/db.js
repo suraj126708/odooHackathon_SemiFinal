@@ -12,10 +12,14 @@ const stripQuotes = (v) => {
   return t;
 };
 
+console.log("HOST:", process.env.MYSQL_HOST);
+console.log("USER:", process.env.MYSQL_USER);
+console.log("PASS:", process.env.MYSQL_PASSWORD);
+
 const mysqlUser = stripQuotes(process.env.MYSQL_USER) || "root";
 const mysqlPassword = stripQuotes(process.env.MYSQL_PASSWORD);
 const mysqlDatabase = stripQuotes(process.env.MYSQL_DATABASE) || "odoo_prefinal";
-const mysqlHost = stripQuotes(process.env.MYSQL_HOST) || "localhost";
+const mysqlHost = stripQuotes(process.env.MYSQL_HOST) || "127.0.0.1";
 
 const sequelize = new Sequelize(mysqlDatabase, mysqlUser, mysqlPassword, {
   host: mysqlHost,

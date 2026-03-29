@@ -60,6 +60,11 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      boxShadow: {
+        glow: "0 0 56px -12px oklch(0.72 0.14 195 / 0.45)",
+        "glow-sm": "0 0 32px -8px oklch(0.72 0.14 195 / 0.35)",
+        "glow-inset": "inset 0 1px 0 0 oklch(1 0 0 / 0.06)",
+      },
     },
   },
   plugins: [],

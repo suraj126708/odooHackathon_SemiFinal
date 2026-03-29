@@ -5,7 +5,7 @@
 #google_translate_element > .skiptranslate > span {
   display: none;
 }
-table {
+#google_translate_element table {
   display: none;
 }
 #hero-page {

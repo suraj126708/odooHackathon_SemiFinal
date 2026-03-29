@@ -10,7 +10,7 @@ const seedData = require("./seed-data");
 
 const app = express();
 
-require("./models/User");
+require("./models");
 
 const PORT = process.env.PORT || 8080;
 
