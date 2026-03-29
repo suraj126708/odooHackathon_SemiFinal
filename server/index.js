@@ -4,9 +4,12 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 
-const AuthRouter = require("./routes/AuthRouter");
 const { connectDB } = require("./models/db");
 const seedData = require("./seed-data");
+
+const AuthRouter = require("./routes/AuthRouter");
+const UserRouter = require("./routes/UserRouter");
+const ExpenseRouter = require("./routes/ExpenseRouter");
 
 const app = express();
 
@@ -39,7 +42,8 @@ app.use(
     origin: function (origin, callback) {
       // When credentials are included, we must NEVER return "*".
       // Only reflect the request origin if it is explicitly allowed.
-      if (origin && allowedOrigins.includes(origin)) return callback(null, origin);
+      if (origin && allowedOrigins.includes(origin))
+        return callback(null, origin);
       return callback(null, false);
     },
     credentials: true,
@@ -51,7 +55,8 @@ app.options(
   "*",
   cors({
     origin: function (origin, callback) {
-      if (origin && allowedOrigins.includes(origin)) return callback(null, origin);
+      if (origin && allowedOrigins.includes(origin))
+        return callback(null, origin);
       return callback(null, false);
     },
     credentials: true,
@@ -64,6 +69,8 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
 app.use("/api/auth", AuthRouter);
+app.use("/api/users", UserRouter);
+app.use("/api/expenses", ExpenseRouter);
 
 // Health check
 app.get("/ping", (req, res) => {

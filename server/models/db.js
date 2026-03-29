@@ -12,13 +12,10 @@ const stripQuotes = (v) => {
   return t;
 };
 
-console.log("HOST:", process.env.MYSQL_HOST);
-console.log("USER:", process.env.MYSQL_USER);
-console.log("PASS:", process.env.MYSQL_PASSWORD);
-
 const mysqlUser = stripQuotes(process.env.MYSQL_USER) || "root";
 const mysqlPassword = stripQuotes(process.env.MYSQL_PASSWORD);
-const mysqlDatabase = stripQuotes(process.env.MYSQL_DATABASE) || "odoo_prefinal";
+const mysqlDatabase =
+  stripQuotes(process.env.MYSQL_DATABASE) || "odoo_prefinal";
 const mysqlHost = stripQuotes(process.env.MYSQL_HOST) || "127.0.0.1";
 
 const sequelize = new Sequelize(mysqlDatabase, mysqlUser, mysqlPassword, {
@@ -31,7 +28,10 @@ const sequelize = new Sequelize(mysqlDatabase, mysqlUser, mysqlPassword, {
 const connectDB = async () => {
   try {
     const port = Number(process.env.MYSQL_PORT) || 3306;
-    console.log("🔗 Connecting to MySQL:", `${mysqlHost}:${port}/${mysqlDatabase}`);
+    console.log(
+      "🔗 Connecting to MySQL:",
+      `${mysqlHost}:${port}/${mysqlDatabase}`,
+    );
 
     await sequelize.authenticate();
     console.log("✅ MySQL connected");
@@ -39,9 +39,11 @@ const connectDB = async () => {
     await sequelize.sync({ alter: process.env.MYSQL_SYNC_ALTER === "true" });
   } catch (error) {
     console.error(`❌ MySQL Connection Error: ${error.message}`);
-    console.error("💡 Check MYSQL_USER / MYSQL_PASSWORD match your MySQL server.");
     console.error(
-      "💡 If the password is correct, try MYSQL_HOST=127.0.0.1 (Windows uses a different client than 'localhost')."
+      "💡 Check MYSQL_USER / MYSQL_PASSWORD match your MySQL server.",
+    );
+    console.error(
+      "💡 If the password is correct, try MYSQL_HOST=127.0.0.1 (Windows uses a different client than 'localhost').",
     );
     process.exit(1);
   }

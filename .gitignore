@@ -89,3 +89,5 @@ Dockerfile.dev
 # Miscellaneous
 *.tgz
 !.github
+
+uploads/
